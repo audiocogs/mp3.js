@@ -1,5 +1,5 @@
-MP3.js - an MP3 decoder in JavaScript based on JSMad and libmad
-===============================================================
+MP3.js - a JavaScript MP3 decoder based on JSMad
+================================================
 
 MP3.js is a refactored version of [JSMad](https://github.com/ofmlabs/jsmad) designed to run in ofmlabs 
 [Aurora audio framework](https://github.com/ofmlabs/alac.js/tree/master/Aurora).  It supports all of the
@@ -9,8 +9,8 @@ uses all typed arrays for decoding at better performance.
 ## Authors
 
 MP3.js was originally written by [@nddrylliog](https://twitter.com/nddrylliog), 
-[@jensnockert](https://twitter.com/jensnockert), and [@mgeorgi](https://twitter.com/mgeorgi) during a Music Hack Day.  
-The refactor for MP3.js was performed by [@devongovett](https://twitter.com/devongovett).
+[@jensnockert](https://twitter.com/jensnockert), and [@mgeorgi](https://twitter.com/mgeorgi) during a Music Hack Day. The 
+refactor for MP3.js was performed by [@devongovett](https://twitter.com/devongovett).
 
 ## License
 
