@@ -8,7 +8,7 @@ uses all typed arrays for decoding at better performance.
 
 ## Authors
 
-MP3.js was originally written by [@nddrylliog](https://twitter.com/nddrylliog), 
+JSMad was originally written by [@nddrylliog](https://twitter.com/nddrylliog), 
 [@jensnockert](https://twitter.com/jensnockert), and [@mgeorgi](https://twitter.com/mgeorgi) during a Music Hack Day. The 
 refactor for MP3.js was performed by [@devongovett](https://twitter.com/devongovett).
 
