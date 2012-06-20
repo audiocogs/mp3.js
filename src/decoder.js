@@ -21,9 +21,13 @@ MP3Decoder = Decoder.extend(function() {
             return this.once('available', this.readChunk);
         
         if (!frame.decode(stream)) {
-            if (stream.error !== MP3Stream.ERROR.BUFLEN && stream.error !== MP3Stream.ERROR.LOSTSYNC)
+            if (stream.error === MP3Stream.ERROR.BUFLEN){
+                this.emit('end');
+            }else if (stream.error !== MP3Stream.ERROR.LOSTSYNC)
                 this.emit('error', 'A decoding error occurred: ' + stream.error);
-                
+            }
+            //something should be done for LOSTSYNC, so listeners aren't left hanging,
+            //but I don't know what exactly
             return;
         }
         
