@@ -1,4 +1,4 @@
-ID3Stream = Base.extend({
+var ID3Stream = Base.extend({
     constructor: function(header, stream) {
         this.header = header;
         this.stream = stream;
@@ -88,7 +88,7 @@ ID3Stream = Base.extend({
         while (stream.readUInt8() !== 0); // picture type
         while (stream.readUInt8() !== 0); // description
         
-        return stream.readBuffer(header.length - (stream.offset - start)).data.buffer;
+        return stream.readBuffer(header.length - (stream.offset - start));
     },
     
     decodeLinkFrame: function(header) {
@@ -123,7 +123,7 @@ ID3Stream = Base.extend({
     }
 });
 
-ID3v23Stream = ID3Stream.extend({
+var ID3v23Stream = ID3Stream.extend({
     readFrame: function() {
         if (this.offset >= this.header.length) {
             return null;
@@ -336,7 +336,7 @@ ID3v23Stream = ID3Stream.extend({
     }
 });
 
-ID3v22Stream = ID3Stream.extend({
+var ID3v22Stream = ID3Stream.extend({
     readFrame: function() {
         if (this.offset >= this.header.length) {
             return null;

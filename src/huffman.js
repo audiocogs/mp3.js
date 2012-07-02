@@ -2941,7 +2941,7 @@ const hufftab24 = [
 ];
 
 /* hufftable constructor */
-MP3Hufftable = function(table, linbits, startbits) {
+function MP3Hufftable(table, linbits, startbits) {
     this.table = table;
     this.linbits = linbits;
     this.startbits = startbits;

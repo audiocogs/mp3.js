@@ -1,4 +1,4 @@
-IMDCT = (function() {
+var IMDCT = (function() {
 
     function IMDCT() {
         this.tmp_imdct36 = new Float64Array(18);
@@ -141,6 +141,7 @@ IMDCT = (function() {
     }
     
     return IMDCT;
+    
 })();
 
 const IMDCT_S = [
