@@ -82,7 +82,6 @@ var ID3Stream = Base.extend({
         var stream = this.stream;
         var encoding = stream.readUInt8();
         var start = stream.offset;
-        var i = 0;
         
         while (stream.readUInt8() !== 0); // mime type
         while (stream.readUInt8() !== 0); // picture type
@@ -375,6 +374,18 @@ var ID3v22Stream = ID3Stream.extend({
         return result;
     },
     
+    decodePictureFrame: function(header) {
+        var stream = this.stream;
+        var encoding = stream.readUInt8(),
+            format = stream.readUInt24(),
+            type = stream.readUInt8();
+            
+        var start = stream.offset;        
+        while (stream.readUInt8() !== 0); // description
+        
+        return stream.readBuffer(header.length - (stream.offset - start));
+    },
+    
     decoders: {
         'UFI': 'decodeIdentifierFrame',
         'TT1': 'decodeTextFrame',
@@ -412,7 +423,7 @@ var ID3v22Stream = ID3Stream.extend({
         'TOA': 'decodeTextFrame',
         'TOL': 'decodeTextFrame',
         'TOR': 'decodeTextFrame',
-
+        'PIC': 'decodePictureFrame',
         'COM': 'decodeCommentFrame'
     },
 
@@ -459,7 +470,7 @@ var ID3v22Stream = ID3Stream.extend({
         'BUF': 'Recommended buffer size',
 
         /* Attached Picture Frame */
-        'PIC': 'Attached picture',
+        'PIC': 'Cover Art',
 
         /* Unique Identifier Frame */
         'UFI': 'Unique identifier',
