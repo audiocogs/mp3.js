@@ -4,8 +4,12 @@ MP3Demuxer = Demuxer.extend(function() {
     Demuxer.register(this);
     
     this.probe = function(stream) {
-        var header = this.getID3v2Header(stream);
-        // TODO: check first mp3 frame
+        // attempt to read the header of the first audio frame
+        var off = stream.offset;
+        var s = new MP3Stream(new Bitstream(stream));
+        var header = MP3FrameHeader.decode(s);
+        stream.advance(off - stream.offset);
+        
         return !!header;
     };
     
