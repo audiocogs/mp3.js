@@ -74,6 +74,17 @@ function MP3FrameHeader() {
     this.private_bits   = 0; // private bits
 }
 
+MP3FrameHeader.prototype.copy = function() {
+    var clone = new MP3FrameHeader();
+    var keys = Object.keys(this);
+    
+    for (var key in keys) {
+        clone[key] = this[key];
+    }
+    
+    return clone;
+}
+
 MP3FrameHeader.prototype.nchannels = function () {
     return this.mode === 0 ? 1 : 2;
 };
@@ -133,7 +144,6 @@ MP3FrameHeader.prototype.decode = function(stream) {
 
     // sampling_frequency 
     index = stream.readSmall(2);
-
     if (index === 3) {
         stream.error = MP3Stream.ERROR.BADSAMPLERATE;
         return false;
@@ -176,7 +186,7 @@ MP3FrameHeader.prototype.decode = function(stream) {
     // crc_check 
     if (this.flags & FLAGS.PROTECTION)
         this.crc_target = stream.read(16);
-        
+    
     return true;
 };
 
@@ -204,10 +214,7 @@ MP3FrameHeader.decode = function(stream) {
         } else {
             stream.advance(ptr * 8 - stream.offset());
             
-            if (stream.doSync() === -1) {
-                // if (end - stream.next_frame >= Mad.BUFFER_GUARD)
-                //     stream.next_frame = end - Mad.BUFFER_GUARD;
-                
+            if (stream.doSync() === -1) {                
                 stream.error = MP3Stream.ERROR.BUFLEN;
                 return null;
             }
@@ -226,11 +233,16 @@ MP3FrameHeader.decode = function(stream) {
         
         if (!header)
             return null;
-            
+        
         if (header.bitrate === 0) {
-            console.log("Uh oh, a free bitrate stream. We're fucked.", header);
-            stream.error = MP3Stream.ERROR.BADDATAPTR; // best guess
-            return null;
+            if (stream.freerate === 0 || !stream.sync || (header.layer === 3 && stream.freerate > 640000)) {
+                if (MP3FrameHeader.free_bitrate(stream, header) === -1) {
+                    return null;
+                }
+            }
+            
+            header.bitrate = stream.freerate;
+            header.flags |= FLAGS.FREEFORMAT;
         }
         
         // calculate beginning of next frame
@@ -270,4 +282,41 @@ MP3FrameHeader.decode = function(stream) {
     
     header.flags |= FLAGS.INCOMPLETE;
     return header;
+};
+
+MP3FrameHeader.free_bitrate = function(stream, header) {
+    var pad_slot = header.flags & FLAGS.PADDING ? 1 : 0,
+        slots_per_frame = header.layer === 3 && header.flags & FLAGS.LSF_EXT ? 72 : 144;
+    
+    var start = stream.offset();
+    var rate = 0;
+        
+    while (stream.doSync() !== -1) {
+        var peek_header = header.copy();
+        var peek_stream = stream.copy();
+        
+        if (peek_header.decode(peek_stream) && peek_header.layer === header.layer && peek_header.samplerate === header.samplerate) {
+            var N = stream.nextByte() - stream.this_frame;
+            
+            if (header.layer === 1) {
+                rate = header.samplerate * (N - 4 * pad_slot + 4) / 48 / 1000 | 0;
+            } else {
+                rate = header.samplerate * (N - pad_slot + 1) / slots_per_frame / 1000 | 0;
+            }
+            
+            if (rate >= 8)
+                break;
+        }
+        
+        stream.advance(8);
+    }
+    
+    stream.advance(start - stream.offset());
+    
+    if (rate < 8 || (header.layer === 3 && rate > 640)) {
+        stream.error = MP3Stream.ERROR.LOST_SYNC;
+        return -1;
+    }
+    
+    stream.freerate = rate * 1000;
 };
