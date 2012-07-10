@@ -96,7 +96,7 @@ MP3FrameHeader.prototype.nbsamples = function() {
 MP3FrameHeader.prototype.decode = function(stream) {
     this.flags        = 0;
     this.private_bits = 0;
-
+    
     // syncword 
     stream.advance(11);
 
@@ -122,12 +122,8 @@ MP3FrameHeader.prototype.decode = function(stream) {
     }
 
     // protection_bit 
-    if (stream.readOne() === 0) {
+    if (stream.readOne() === 0)
         this.flags |= FLAGS.PROTECTION;
-        // TODO: crc
-        // header.crc_check = mad_bit_crc(stream.ptr, 16, 0xffff);
-        stream.advance(16);
-    }
 
     // bitrate_index 
     var index = stream.readSmall(4);
@@ -204,7 +200,7 @@ MP3FrameHeader.decode = function(stream) {
                 stream.next_frame = ptr;
                 stream.error = MP3Stream.ERROR.BUFLEN;
                 return null;
-            } else if (!(stream.getU8(ptr) === 0xff && stream.getU8(ptr + 1) & 0xe0 === 0xe0)) {
+            } else if (!(stream.getU8(ptr) === 0xff && (stream.getU8(ptr + 1) & 0xe0) === 0xe0)) {
                 // mark point where frame sync word was expected
                 stream.this_frame = ptr;
                 stream.next_frame = ptr + 1;

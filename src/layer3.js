@@ -63,7 +63,7 @@ Layer3.prototype.decode = function(stream, frame) {
     
     // check CRC word
     if (header.flags & FLAGS.PROTECTION) {
-        console.log("TODO: crc check");
+        // TODO: crc check
     }
     
     // decode frame side information
@@ -324,7 +324,6 @@ Layer3.prototype.decodeMainData = function(stream, frame, si, nch) {
             var sample = frame.sbsample[ch].slice(18 * gr);
             
             var sb, l = 0, i, sblimit;
-            // var output = new Float64Array(36);
             var output = this.output;
             
             if (channel.block_type === 2) {
@@ -753,11 +752,11 @@ Layer3.prototype.requantize = function(value, exp) {
     var requantized = Math.pow(value, 4.0 / 3.0);
     requantized *= Math.pow(2.0, (exp / 4.0));
     
-    if(frac) {
+    if (frac) {
         requantized *= Math.pow(2.0, (frac / 4.0));
     }
     
-    if(exp < 0) {
+    if (exp < 0) {
         requantized /= Math.pow(2.0, -exp * (3.0 / 4.0));
     }
 

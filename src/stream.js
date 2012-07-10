@@ -1,10 +1,10 @@
 function MP3Stream(stream) {
-    this.stream = stream;              // actual bitstream
-    this.sync = false;                 // stream sync found
-    this.freerate = 0;                 // free bitrate (fixed)
-    this.this_frame = stream.offset;   // start of current frame
-    this.next_frame = stream.offset;   // start of next frame
-    this.error = MP3Stream.ERROR.NONE; // error code
+    this.stream = stream;                     // actual bitstream
+    this.sync = false;                        // stream sync found
+    this.freerate = 0;                        // free bitrate (fixed)
+    this.this_frame = stream.stream.offset;   // start of current frame
+    this.next_frame = stream.stream.offset;   // start of next frame
+    this.error = MP3Stream.ERROR.NONE;        // error code
     
     this.main_data = new Uint8Array(BUFFER_MDLEN); // actual audio data
     this.md_len = 0;                               // length of main data
@@ -30,7 +30,7 @@ MP3Stream.prototype.doSync = function() {
     var stream = this.stream.stream;
     this.align();
     
-    while (this.available(16) && !(stream.peekUInt8(0) === 0xff && stream.peekUInt8(1) & 0xe0 === 0xe0)) {
+    while (this.available(16) && !(stream.peekUInt8(0) === 0xff && (stream.peekUInt8(1) & 0xe0) === 0xe0)) {
         this.advance(8);
     }
 
