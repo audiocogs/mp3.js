@@ -22,5 +22,4 @@ Version 2. Please note that under the GPL, there is absolutely no warranty of an
 - MPEG Layer I and II are not supported, only Layer III is - it should be pretty trivial but we had no interest for it in 
   the first place.
 - MPEG 2.5 is not supported.
-- Free bitrate streams are not supported (this is different from VBR - VBR is supported)
-- Most of ID3v2.2 and ID3v2.3 are implemented, but some tags are mising.
+- Most of ID3v2.2 and ID3v2.3 are implemented, but some tags are missing.
