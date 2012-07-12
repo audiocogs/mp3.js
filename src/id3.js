@@ -80,11 +80,11 @@ var ID3Stream = Base.extend({
     
     decodePictureFrame: function(header) {
         var stream = this.stream;
-        var encoding = stream.readUInt8();
         var start = stream.offset;
+        var encoding = stream.readUInt8();
         
         while (stream.readUInt8() !== 0); // mime type
-        while (stream.readUInt8() !== 0); // picture type
+        stream.advance(1);                // picture type
         while (stream.readUInt8() !== 0); // description
         
         return stream.readBuffer(header.length - (stream.offset - start));
@@ -376,13 +376,12 @@ var ID3v22Stream = ID3Stream.extend({
     
     decodePictureFrame: function(header) {
         var stream = this.stream;
+        var start = stream.offset;
         var encoding = stream.readUInt8(),
             format = stream.readUInt24(),
             type = stream.readUInt8();
             
-        var start = stream.offset;        
         while (stream.readUInt8() !== 0); // description
-        
         return stream.readBuffer(header.length - (stream.offset - start));
     },
     
