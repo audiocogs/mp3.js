@@ -82,10 +82,11 @@ var ID3Stream = Base.extend({
         var stream = this.stream;
         var start = stream.offset;
         var encoding = stream.readUInt8();
+        var fn = 'readUInt' + (encoding ? 16 : 8);
         
         while (stream.readUInt8() !== 0); // mime type
         stream.advance(1);                // picture type
-        while (stream.readUInt8() !== 0); // description
+        while (stream[fn]() !== 0);       // description
         
         return stream.readBuffer(header.length - (stream.offset - start));
     },
@@ -123,6 +124,14 @@ var ID3Stream = Base.extend({
 });
 
 var ID3v23Stream = ID3Stream.extend({
+    getSize: function(len) {
+        var v = 0;
+        while (len--)
+            v = (v << 7) + (this.stream.readUInt8() & 0x7f);
+            
+        return v;
+    },
+    
     readFrame: function() {
         if (this.offset >= this.header.length) {
             return null;
@@ -133,8 +142,12 @@ var ID3v23Stream = ID3Stream.extend({
             this.offset = this.header.length + 1;
             return null;
         }
-
-        var length = this.stream.readUInt32();
+        
+        if (this.header.major === 4)
+            var length = this.getSize(4);
+        else
+            var length = this.stream.readUInt32();
+            
         var flags = this.stream.readUInt16();
 
         var header = {
