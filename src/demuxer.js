@@ -54,7 +54,7 @@ MP3Demuxer = Demuxer.extend(function() {
             return false;
         
         // Check for Xing/Info tag
-        stream.advance(XING_OFFSETS[(header.flags & FLAGS.LSF_EXT)][header.nchannels() === 1 ? 1 : 0]);
+        stream.advance(XING_OFFSETS[header.flags & FLAGS.LSF_EXT ? 1 : 0][header.nchannels() === 1 ? 1 : 0]);
         var tag = stream.readString(4);
         if (tag === 'Xing' || tag === 'Info') {
             var flags = stream.readUInt32();
