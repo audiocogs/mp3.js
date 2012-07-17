@@ -5,12 +5,12 @@
 function MP3SideInfo() {
     this.main_data_begin = null;
     this.private_bits = null;
-    this.gr = []; // array of MP3Granule
+    this.gr = [new MP3Granule(), new MP3Granule()];
     this.scfsi = new Uint8Array(2);
 }
 
 function MP3Granule() {
-    this.ch = []; // array of MP3Channel
+    this.ch = [new MP3Channel(), new MP3Channel()];
 }
 
 function MP3Channel() {
@@ -68,6 +68,9 @@ Layer3.prototype.decode = function(stream, frame) {
     
     // decode frame side information
     var sideInfo = this.sideInfo(stream, nch, header.flags & FLAGS.LSF_EXT);
+    if (stream.error !== MP3Stream.ERROR.NONE)
+        result = -1;
+        
     var si = sideInfo.si;
     var data_bitlen = sideInfo.data_bitlen;
     var priv_bitlen = sideInfo.priv_bitlen;
@@ -112,7 +115,7 @@ Layer3.prototype.decode = function(stream, frame) {
             var old_md_len = stream.md_len;
             
             if (md_len > si.main_data_begin) {
-                if(stream.md_len + md_len - si.main_data_begin > BUFFER_MDLEN) {
+                if (stream.md_len + md_len - si.main_data_begin > BUFFER_MDLEN) {
                     throw new Error("Assertion failed: (stream.md_len + md_len - si.main_data_begin <= MAD_BUFFER_MDLEN)");
                 }
                 
@@ -164,10 +167,11 @@ Layer3.prototype.decode = function(stream, frame) {
 };
 
 Layer3.prototype.memcpy = function(dst, dstOffset, pSrc, srcOffset, length) {
+    var subarr;
     if (pSrc.subarray)
-        var subarr = pSrc.subarray(srcOffset, srcOffset + length);
+        subarr = pSrc.subarray(srcOffset, srcOffset + length);
     else
-        var subarr = pSrc.peekBuffer(srcOffset - pSrc.offset, length).data;
+        subarr = pSrc.peekBuffer(srcOffset - pSrc.offset, length).data;
 
     // oh my, memcpy actually exists in JavaScript?
     dst.set(subarr, dstOffset);
@@ -203,12 +207,10 @@ Layer3.prototype.sideInfo = function(stream, nch, lsf) {
     }
     
     for (var gr = 0; gr < ngr; gr++) {
-        var granule = new MP3Granule();
-        si.gr[gr] = granule;
+        var granule = si.gr[gr];
         
         for (var ch = 0; ch < nch; ch++) {
-            var channel = new MP3Channel();
-            granule.ch[ch] = channel;
+            var channel = granule.ch[ch];
             
             channel.part2_3_length    = stream.read(12);
             channel.big_values        = stream.read(9);
@@ -259,6 +261,9 @@ Layer3.prototype.sideInfo = function(stream, nch, lsf) {
             channel.flags |= stream.read(lsf ? 2 : 3);
         }
     }
+    
+    if (result !== MP3Stream.ERROR.NONE)
+        stream.error = result;
 
     return {
         si: si,
@@ -300,7 +305,6 @@ Layer3.prototype.decodeMainData = function(stream, frame, si, nch) {
             }
 
             if (header.flags & FLAGS.LSF_EXT) {
-                // uh oh...
                 part2_length = this.scalefactors_lsf(stream, channel, ch === 0 ? 0 : si.gr[1].ch[1], header.mode_extension);
             } else {
                 part2_length = this.scalefactors(stream, channel, si.gr[0].ch[ch], gr === 0 ? 0 : si.scfsi[ch]);
@@ -313,7 +317,7 @@ Layer3.prototype.decodeMainData = function(stream, frame, si, nch) {
         
         // joint stereo processing
         if (header.mode === MODE.JOINT_STEREO && header.mode_extension !== 0) {
-            var error = this.stereo(xr, granule, header, sfbwidth[0]);
+            var error = this.stereo(xr, si.gr, gr, header, sfbwidth[0]);
             if (error)
                 return error;
         }
@@ -458,6 +462,102 @@ Layer3.prototype.scalefactors = function(stream, channel, gr0ch, scfsi) {
         }
 
         channel.scalefac[21] = 0;
+    }
+    
+    return stream.offset() - start;
+};
+
+Layer3.prototype.scalefactors_lsf = function(stream, channel, gr1ch, mode_extension) {
+    var start = stream.offset();
+    var scalefac_compress = channel.scalefac_compress;
+    var index = channel.block_type === 2 ? (channel.flags & MIXED_BLOCK_FLAG ? 2 : 1) : 0;
+    var slen = new Int32Array(4);
+    var nsfb;
+    
+    if (!((mode_extension & I_STEREO) && gr1ch)) {
+        if (scalefac_compress < 400) {
+            slen[0] = (scalefac_compress >>> 4) / 5;
+            slen[1] = (scalefac_compress >>> 4) % 5;
+            slen[2] = (scalefac_compress % 16) >>> 2;
+            slen[3] =  scalefac_compress %  4;
+        
+            nsfb = NSFB_TABLE[0][index];
+        } else if (scalefac_compress < 500) {
+            scalefac_compress -= 400;
+
+            slen[0] = (scalefac_compress >>> 2) / 5;
+            slen[1] = (scalefac_compress >>> 2) % 5;
+            slen[2] =  scalefac_compress % 4;
+            slen[3] = 0;
+
+            nsfb = NSFB_TABLE[1][index];
+        } else {
+            scalefac_compress -= 500;
+
+            slen[0] = scalefac_compress / 3;
+            slen[1] = scalefac_compress % 3;
+            slen[2] = 0;
+            slen[3] = 0;
+
+            channel.flags |= PREFLAG;
+            nsfb = NSFB_TABLE[2][index];
+        }
+        
+        var n = 0;
+        for (var part = 0; part < 4; part++) {
+            for (var i = 0; i < nsfb[part]; i++) {
+                channel.scalefac[n++] = stream.read(slen[part]);
+            }
+        }
+        
+        while (n < 39) {
+            channel.scalefac[n++] = 0;
+        }
+    } else {  // (mode_extension & I_STEREO) && gr1ch (i.e. ch == 1)
+        scalefac_compress >>>= 1;
+        
+        if (scalefac_compress < 180) {
+            slen[0] =  scalefac_compress / 36;
+            slen[1] = (scalefac_compress % 36) / 6;
+            slen[2] = (scalefac_compress % 36) % 6;
+            slen[3] = 0;
+
+            nsfb = NSFB_TABLE[3][index];
+        } else if (scalefac_compress < 244) {
+            scalefac_compress -= 180;
+
+            slen[0] = (scalefac_compress % 64) >>> 4;
+            slen[1] = (scalefac_compress % 16) >>> 2;
+            slen[2] =  scalefac_compress %  4;
+            slen[3] = 0;
+
+            nsfb = NSFB_TABLE[4][index];
+        } else {
+            scalefac_compress -= 244;
+
+            slen[0] = scalefac_compress / 3;
+            slen[1] = scalefac_compress % 3;
+            slen[2] = 0;
+            slen[3] = 0;
+
+            nsfb = NSFB_TABLE[5][index];
+        }
+        
+        var n = 0;
+        for (var part = 0; part < 4; ++part) {
+            var max = (1 << slen[part]) - 1;
+            for (var i = 0; i < nsfb[part]; ++i) {
+                var is_pos = stream.read(slen[part]);
+
+                channel.scalefac[n] = is_pos;
+                gr1ch.scalefac[n++] = is_pos === max ? 1 : 0;
+            }
+        }
+        
+        while (n < 39) {
+            channel.scalefac[n] = 0;
+            gr1ch.scalefac[n++] = 0;  // apparently not illegal
+        }
     }
     
     return stream.offset() - start;
@@ -806,7 +906,8 @@ Layer3.prototype.exponents = function(channel, sfbwidth, exponents) {
     }
 };
 
-Layer3.prototype.stereo = function(xr, granule, header, sfbwidth) {
+Layer3.prototype.stereo = function(xr, granules, gr, header, sfbwidth) {
+    var granule = granules[gr];
     var modes = this.modes;
     var sfbi, l, n, i;
     
@@ -900,7 +1001,7 @@ Layer3.prototype.stereo = function(xr, granule, header, sfbwidth) {
         
         // now do the actual processing
         if (header.flags & FLAGS.LSF_EXT) {
-            var illegal_pos = granule[1].ch[1].scalefac;
+            var illegal_pos = granules[gr + 1].ch[1].scalefac;
 
             // intensity_scale
             var lsf_scale = IS_LSF_TABLE[right_ch.scalefac_compress & 0x1];
