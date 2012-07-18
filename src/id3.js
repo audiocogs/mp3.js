@@ -98,10 +98,11 @@ var ID3Stream = Base.extend({
                 return result;
                 
             case UTF16BOM:
-                if (length < 2)
+                var bom;
+                if (length < 2 || (bom = stream.readUInt16()) === 0)
                     return result;
                 
-                littleEndian = stream.readUInt16() === 0xfffe;
+                littleEndian = (bom === 0xfffe);
                 // fall through
                 
             case UTF16BE:
