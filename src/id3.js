@@ -1,9 +1,6 @@
-const LATIN1 = 0,
-      UTF16BOM = 1,
-      UTF16BE = 2,
-      UTF8 = 3;
+const ENCODINGS = ['latin1', 'utf16-bom', 'utf16-be', 'utf8'];
 
-var ID3Stream = Base.extend({
+var ID3Stream = AV.Base.extend({
     constructor: function(header, stream) {
         this.header = header;
         this.stream = stream;
@@ -80,79 +77,12 @@ var ID3Stream = Base.extend({
         this.offset += 10 + header.length;
         return result;
     },
-        
-    readString: function(encoding, length) {
-        var stream = this.stream;
-        var littleEndian = false;
-        var result = '';
-        
-        if (length == null) length = Infinity;
-        var end = length + stream.offset;
-        
-        switch (encoding) {
-            case LATIN1:
-                var c;
-                while (stream.offset < end && (c = stream.readUInt8()))
-                    result += String.fromCharCode(c);
-                
-                return result;
-                
-            case UTF16BOM:
-                var bom;
-                if (length < 2 || (bom = stream.readUInt16()) === 0)
-                    return result;
-                
-                littleEndian = (bom === 0xfffe);
-                // fall through
-                
-            case UTF16BE:
-                var w1, w2;
-                
-                while (stream.offset < end && (w1 = stream.readUInt16(littleEndian))) {
-                    if (w1 < 0xd800 || w1 > 0xdfff) {
-                        result += String.fromCharCode(w1);
-                    } else {
-                        if (w1 > 0xdbff || !stream.available(2))
-                            throw new Error("Invalid UTF16 sequence.");
-                            
-                        w2 = stream.readUInt16(littleEndian);
-                        if (w2 < 0xdc00 || w2 > 0xdfff)
-                            throw new Error("Invalid UTF16 sequence.");
-                            
-                        result += String.fromCharCode(w1, w2);
-                    }
-                }
-                
-                return result;
-                
-            case UTF8:
-                var b1, b2, b3;
-                
-                while (stream.offset < end && (b1 = stream.readUInt8())) {
-                    if (b1 < 0x80) {
-                        result += String.fromCharCode(b1);
-                    } else if (b1 > 0xbf && b1 < 0xe0) {
-                        b2 = stream.readUInt8();
-                        result += String.fromCharCode(((b1 & 31) << 6) | (b2 & 63));
-                    } else {
-                        b2 = stream.readUInt8();
-                        b3 = stream.readUInt8();
-                        result += String.fromCharCode(((b1 & 15) << 12) | ((b2 & 63) << 6) | (b3 & 63));
-                    }
-                }
-                
-                return result;
-            
-            default:
-                throw new Error("Unknown encoding");
-        }
-    },
-    
+
     decodeFrame: function(header, fields) {
         var stream = this.stream,
             start = stream.offset;
             
-        var encoding = LATIN1, ret = {};
+        var encoding = 0, ret = {};
         var len = Object.keys(fields).length, i = 0;
         
         for (var key in fields) {
@@ -174,11 +104,11 @@ var ID3Stream = Base.extend({
             // check types
             switch (type) {                    
                 case 'latin1':
-                    ret[key] = this.readString(LATIN1, i === len ? rest : null);
+                    ret[key] = stream.readString(i === len ? rest : null, 'latin1');
                     break;
                     
                 case 'string':
-                    ret[key] = this.readString(encoding, i === len ? rest : null);
+                    ret[key] = stream.readString(i === len ? rest : null, ENCODINGS[encoding]);
                     break;
                     
                 case 'binary':

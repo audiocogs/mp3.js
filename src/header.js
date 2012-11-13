@@ -101,12 +101,12 @@ MP3FrameHeader.prototype.decode = function(stream) {
     stream.advance(11);
 
     // MPEG 2.5 indicator (really part of syncword) 
-    if (stream.readOne() === 0) {
+    if (stream.read(1) === 0) {
         this.flags |= FLAGS.MPEG_2_5_EXT;
     }
 
     // ID 
-    if (stream.readOne() === 0) {
+    if (stream.read(1) === 0) {
         this.flags |= FLAGS.LSF_EXT;
     } else if (this.flags & FLAGS.MPEG_2_5_EXT) {
         stream.error = MP3Stream.ERROR.LOSTSYNC;
@@ -114,7 +114,7 @@ MP3FrameHeader.prototype.decode = function(stream) {
     }
 
     // layer 
-    this.layer = 4 - stream.readSmall(2);
+    this.layer = 4 - stream.read(2);
 
     if (this.layer === 4) {
         stream.error = MP3Stream.ERROR.BADLAYER;
@@ -122,11 +122,11 @@ MP3FrameHeader.prototype.decode = function(stream) {
     }
 
     // protection_bit 
-    if (stream.readOne() === 0)
+    if (stream.read(1) === 0)
         this.flags |= FLAGS.PROTECTION;
 
     // bitrate_index 
-    var index = stream.readSmall(4);
+    var index = stream.read(4);
     if (index === 15) {
         stream.error = MP3Stream.ERROR.BADBITRATE;
         return false;
@@ -139,7 +139,7 @@ MP3FrameHeader.prototype.decode = function(stream) {
     }
 
     // sampling_frequency 
-    index = stream.readSmall(2);
+    index = stream.read(2);
     if (index === 3) {
         stream.error = MP3Stream.ERROR.BADSAMPLERATE;
         return false;
@@ -155,29 +155,29 @@ MP3FrameHeader.prototype.decode = function(stream) {
     }
 
     // padding_bit 
-    if (stream.readOne())
+    if (stream.read(1))
         this.flags |= FLAGS.PADDING;
 
     // private_bit 
-    if (stream.readOne())
+    if (stream.read(1))
         this.private_bits |= PRIVATE.HEADER;
 
     // mode 
-    this.mode = 3 - stream.readSmall(2);
+    this.mode = 3 - stream.read(2);
 
     // mode_extension 
-    this.mode_extension = stream.readSmall(2);
+    this.mode_extension = stream.read(2);
 
     // copyright 
-    if (stream.readOne())
+    if (stream.read(1))
         this.flags |= FLAGS.COPYRIGHT;
 
     // original/copy 
-    if (stream.readOne())
+    if (stream.read(1))
         this.flags |= FLAGS.ORIGINAL;
 
     // emphasis 
-    this.emphasis = stream.readSmall(2);
+    this.emphasis = stream.read(2);
 
     // crc_check 
     if (this.flags & FLAGS.PROTECTION)

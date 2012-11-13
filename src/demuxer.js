@@ -1,7 +1,7 @@
 //import "id3.js"
 
-MP3Demuxer = Demuxer.extend(function() {
-    Demuxer.register(this);
+var MP3Demuxer = AV.Demuxer.extend(function() {
+    AV.Demuxer.register(this);
     
     this.probe = function(stream) {
         var off = stream.offset;
@@ -12,18 +12,18 @@ MP3Demuxer = Demuxer.extend(function() {
             stream.advance(10 + id3header.length);
         
         // attempt to read the header of the first audio frame
-        var s = new MP3Stream(new Bitstream(stream));
+        var s = new MP3Stream(new AV.Bitstream(stream));
         var header = MP3FrameHeader.decode(s);
         
         // go back to the beginning, for other probes
-        stream.advance(off - stream.offset);
+        stream.seek(off);
         
         return !!header;
     };
     
     this.getID3v2Header = function(stream) {
         if (stream.peekString(0, 3) == 'ID3') {
-            stream = Stream.fromBuffer(stream.peekBuffer(0, 10));
+            stream = AV.Stream.fromBuffer(stream.peekBuffer(0, 10));
             stream.advance(3); // 'ID3'
 
             var major = stream.readUInt8();
@@ -100,7 +100,7 @@ MP3Demuxer = Demuxer.extend(function() {
             
             // read the header of the first audio frame
             var off = stream.offset;
-            var s = new MP3Stream(new Bitstream(stream));
+            var s = new MP3Stream(new AV.Bitstream(stream));
             
             var header = MP3FrameHeader.decode(s);
             if (!header)
@@ -110,7 +110,8 @@ MP3Demuxer = Demuxer.extend(function() {
                 formatID: 'mp3',
                 sampleRate: header.samplerate,
                 channelsPerFrame: header.nchannels(),
-                bitrate: header.bitrate
+                bitrate: header.bitrate,
+                floatingPoint: true
             });
             
             this.parseDuration(header);

@@ -82,12 +82,13 @@ Layer3.prototype.decode = function(stream, frame) {
     var peek = stream.copy();
     peek.advance(stream.next_frame * 8 - peek.offset());
     
-    var nextHeader = peek.read(32);
-    if (this.bitwiseAnd(nextHeader, 0xffe60000) === 0xffe20000) { // syncword | layer
-        if (!this.bitwiseAnd(nextHeader, 0x00010000)) // protection bit
+    var nextHeader = peek.read(16);
+    if ((nextHeader & 0xffe6) === 0xffe2) { // syncword | layer
+        if (nextHeader & 1 === 0) // protection bit
             peek.advance(16); // crc check
             
-        next_md_begin = peek.read(this.bitwiseAnd(nextHeader, 0x00080000) ? 9 : 8);
+        peek.advance(16); // skip the rest of the header
+        next_md_begin = peek.read(nextHeader & 8 ? 9 : 8);
     }
     
     // find main_data of this frame
@@ -124,7 +125,7 @@ Layer3.prototype.decode = function(stream, frame) {
                 stream.md_len += frame_used;
             }
             
-            ptr = new Bitstream(Stream.fromBuffer(new Buffer(stream.main_data)));
+            ptr = new AV.Bitstream(AV.Stream.fromBuffer(new AV.Buffer(stream.main_data)));
             ptr.advance((old_md_len - si.main_data_begin) * 8);
         }
     }
@@ -178,17 +179,6 @@ Layer3.prototype.memcpy = function(dst, dstOffset, pSrc, srcOffset, length) {
     return dst;
 };
 
-Layer3.prototype.bitwiseAnd = function(a, b) {
-    var w = 2147483648; // 2^31
-
-    var aHI = (a / w) << 0;
-    var aLO = a % w;
-    var bHI = (b / w) << 0;
-    var bLO = b % w;
-
-    return ((aHI & bHI) * w + (aLO & bLO));
-};
-
 Layer3.prototype.sideInfo = function(stream, nch, lsf) {
     var si = new MP3SideInfo();
     var result = MP3Stream.ERROR.NONE;
@@ -225,8 +215,8 @@ Layer3.prototype.sideInfo = function(stream, nch, lsf) {
             channel.flags = 0;
 
             // window_switching_flag
-            if (stream.readOne()) {
-                channel.block_type = stream.readSmall(2);
+            if (stream.read(1)) {
+                channel.block_type = stream.read(2);
 
                 if (channel.block_type === 0 && result === 0)
                     result = MP3Stream.ERROR.BADBLOCKTYPE;
@@ -237,7 +227,7 @@ Layer3.prototype.sideInfo = function(stream, nch, lsf) {
                 channel.region0_count = 7;
                 channel.region1_count = 36;
 
-                if (stream.readOne())
+                if (stream.read(1))
                     channel.flags |= MIXED_BLOCK_FLAG;
                 else if (channel.block_type === 2)
                     channel.region0_count = 8;

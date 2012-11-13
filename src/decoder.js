@@ -2,11 +2,10 @@
 //import "frame.js"
 //import "synth.js"
 
-MP3Decoder = Decoder.extend(function() {
-    Decoder.register('mp3', this);
+var MP3Decoder = AV.Decoder.extend(function() {
+    AV.Decoder.register('mp3', this);
     
     this.prototype.init = function() {
-        this.floatingPoint = true;
         this.mp3_stream = new MP3Stream(this.bitstream);
         this.frame = new MP3Frame();
         this.synth = new MP3Synth();
