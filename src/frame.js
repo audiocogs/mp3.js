@@ -30,17 +30,9 @@ const DECODERS = [
 ];
 
 MP3Frame.prototype.decode = function(stream) {
-    if (!this.header || !(this.header.flags & FLAGS.INCOMPLETE)) {
+    if (!this.header || !(this.header.flags & FLAGS.INCOMPLETE))
         this.header = MP3FrameHeader.decode(stream);
-        if (this.header === null)
-            return false;
-    }
 
     this.header.flags &= ~FLAGS.INCOMPLETE;
-    
-    if (DECODERS[this.header.layer - 1].decode(stream, this) === -1) {
-        return false;
-    }
-
-    return true;
+    DECODERS[this.header.layer - 1].decode(stream, this);
 };

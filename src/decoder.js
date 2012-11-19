@@ -11,21 +11,12 @@ var MP3Decoder = AV.Decoder.extend(function() {
         this.synth = new MP3Synth();
     };
     
-    this.prototype.readChunk = function() {            
+    this.prototype.readChunk = function() {
         var stream = this.mp3_stream;
         var frame = this.frame;
         var synth = this.synth;
-        
-        if (!stream.available(1))
-            return this.once('available', this.readChunk);
-        
-        if (!frame.decode(stream)) {
-            if (stream.error !== MP3Stream.ERROR.BUFLEN && stream.error !== MP3Stream.ERROR.LOSTSYNC)
-                this.emit('error', 'A decoding error occurred: ' + stream.error);
                 
-            return;
-        }
-        
+        frame.decode(stream);
         synth.frame(frame);
         
         // interleave samples
@@ -40,7 +31,7 @@ var MP3Decoder = AV.Decoder.extend(function() {
                 output[j++] = data[i][k];
             }
         }
-            
-        this.emit('data', output);
+        
+        return output;
     };
 });

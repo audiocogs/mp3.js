@@ -13,7 +13,11 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
         
         // attempt to read the header of the first audio frame
         var s = new MP3Stream(new AV.Bitstream(stream));
-        var header = MP3FrameHeader.decode(s);
+        var header = null;
+        
+        try {
+            header = MP3FrameHeader.decode(s);
+        } catch (e) {};
         
         // go back to the beginning, for other probes
         stream.seek(off);
@@ -122,7 +126,7 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
         
         while (stream.available(1)) {
             var buffer = stream.readSingleBuffer(stream.remainingBytes());
-            this.emit('data', buffer, stream.remainingBytes() === 0);
+            this.emit('data', buffer);
         }
     };
 });
