@@ -73,6 +73,10 @@ var ID3Stream = AV.Base.extend({
         }
 
         result.key = this.names[header.identifier] ? this.names[header.identifier] : header.identifier;
+        
+        // special sauce for cover art, which should just be a buffer
+        if (result.key === 'coverArt')
+            result.value = result.value.data;
 
         this.offset += 10 + header.length;
         return result;
