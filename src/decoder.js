@@ -2,6 +2,10 @@
 //import "frame.js"
 //import "synth.js"
 
+//import "layer1.js"
+//import "layer2.js"
+//import "layer3.js"
+
 var MP3Decoder = AV.Decoder.extend(function() {
     AV.Decoder.register('mp3', this);
     

@@ -45,6 +45,8 @@ function Layer3() {
     this.tmp2 = new Float64Array(32 * 3 * 6);
 }
 
+MP3Frame.layers[3] = Layer3;
+
 Layer3.prototype.decode = function(stream, frame) {
     var header = frame.header;
     var next_md_begin = 0;

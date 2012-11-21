@@ -32,6 +32,7 @@ const SF_TABLE = new Float32Array([
     0.000004806217, 0.000003814697, 0.000003027727, 0.000002403109,
     0.000001907349, 0.000001513864, 0.000001201554, 0.000000000000
 ]);
+MP3Frame.layers[2] = Layer2;
 
 // possible quantization per subband table
 const SBQUANT = [
