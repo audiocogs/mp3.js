@@ -1,4 +1,5 @@
 //import "header.js"
+//import "layer2.js"
 //import "layer3.js"
 
 function MP3Frame() {
@@ -8,16 +9,18 @@ function MP3Frame() {
     this.overlap = makeArray([2, 32, 18]);  // Layer III block overlap data
 }
 
-function makeArray(lengths) {
+function makeArray(lengths, Type) {
+    if (!Type) Type = Float64Array;
+    
     if (lengths.length === 1) {
-        return new Float64Array(lengths[0]);
+        return new Type(lengths[0]);
     }
     
     var ret = [],
         len = lengths[0];
         
     for (var j = 0; j < len; j++) {
-        ret[j] = makeArray(lengths.slice(1));
+        ret[j] = makeArray(lengths.slice(1), Type);
     }
     
     return ret;
@@ -25,7 +28,7 @@ function makeArray(lengths) {
 
 const DECODERS = [
     function() { console.log("Layer I decoding is not implemented!"); },
-    function() { console.log("Layer II decoding is not implemented!"); },
+    new Layer2(),
     new Layer3()
 ];
 

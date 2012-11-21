@@ -1172,7 +1172,6 @@ Layer3.prototype.overlap_z = function (overlap, sample, sb) {
 
 Layer3.prototype.reorder = function (xr, channel, sfbwidth) {
     var sfbwidthPointer = 0;
-    // var tmp = makeArray([32, 3, 6]);
     var tmp = this.tmp;
     var sbw = new Uint32Array(3);
     var sw  = new Uint32Array(3);
@@ -1210,7 +1209,6 @@ Layer3.prototype.reorder = function (xr, channel, sfbwidth) {
         }
     }
 
-    // var tmp2 = new Float64Array(32 * 3 * 6);
     var tmp2 = this.tmp2;
     var ptr = 0;
     
