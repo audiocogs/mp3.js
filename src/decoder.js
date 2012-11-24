@@ -13,6 +13,7 @@ var MP3Decoder = AV.Decoder.extend(function() {
         this.mp3_stream = new MP3Stream(this.bitstream);
         this.frame = new MP3Frame();
         this.synth = new MP3Synth();
+        this.seeking = false;
     };
     
     this.prototype.readChunk = function() {
@@ -20,18 +21,22 @@ var MP3Decoder = AV.Decoder.extend(function() {
         var frame = this.frame;
         var synth = this.synth;
 
-        // if we just seeked, we may start getting errors involving the frame reservoir.
-        // theoretically the limit to this is 29 frames, so ignore recoverable errors up to
-        // 29 times before letting them through.
-        var frames = 0;
-        while (true) {
-            try {
-                frame.decode(stream);
-                break;
-            } catch (err) {
-                if (err instanceof AV.UnderflowError || ++frames > 29)
-                    throw err;
+        // if we just seeked, we may start getting errors involving the frame reservoir,
+        // so keep going until we successfully decode a frame
+        if (this.seeking) {
+            while (true) {
+                try {
+                    frame.decode(stream);
+                    break;
+                } catch (err) {
+                    if (err instanceof AV.UnderflowError)
+                        throw err;
+                }
             }
+            
+            this.seeking = false;
+        } else {
+            frame.decode(stream);
         }
         
         synth.frame(frame);
@@ -101,6 +106,7 @@ var MP3Decoder = AV.Decoder.extend(function() {
         if (this.demuxer.seekPoints.length === 0)
             timestamp = this.stream.offset / (this.format.bitrate / 8) * this.format.sampleRate;
         
+        this.seeking = true;
         return timestamp;
     };
 });
