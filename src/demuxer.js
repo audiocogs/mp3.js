@@ -62,25 +62,51 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
         var tag = stream.readString(4);
         if (tag === 'Xing' || tag === 'Info') {
             var flags = stream.readUInt32();
-            if (flags & 0x1) 
+            if (flags & 1) 
                 frames = stream.readUInt32();
-        }
-        
-        // Check for VBRI tag (always 32 bytes after end of mpegaudio header)
-        stream.advance(offset + 4 + 32 - stream.offset);
-        tag = stream.readString(4);
-        if (tag == 'VBRI' && stream.readUInt16() === 1) { // Check tag version
-            stream.advance(4); // skip delay and quality
-            stream.advance(4); // skip size
-            frames = stream.readUInt32();
+                
+            if (flags & 2)
+                var size = stream.readUInt32();
+                
+            if (flags & 4 && frames && size) {
+                for (var i = 0; i < 100; i++) {
+                    var b = stream.readUInt8();
+                    var pos = b / 256 * size | 0;
+                    var time = i / 100 * (frames * header.nbsamples() * 32) | 0;
+                    this.addSeekPoint(pos, time);
+                }
+            }
+                
+            if (flags & 8)
+                stream.advance(4);
+                
+        } else {
+            // Check for VBRI tag (always 32 bytes after end of mpegaudio header)
+            stream.seek(offset + 4 + 32);
+            tag = stream.readString(4);
+            if (tag == 'VBRI' && stream.readUInt16() === 1) { // Check tag version
+                stream.advance(4); // skip delay and quality
+                stream.advance(4); // skip size
+                frames = stream.readUInt32();
+                
+                var entries = stream.readUInt16();
+                var scale = stream.readUInt16();
+                var bytesPerEntry = stream.readUInt16();
+                var framesPerEntry = stream.readUInt16();
+                var fn = 'readUInt' + (bytesPerEntry * 8);
+                
+                var pos = 0;
+                for (var i = 0; i < entries; i++) {
+                    this.addSeekPoint(pos, framesPerEntry * i);
+                    pos += stream[fn]();
+                }
+            }
         }
         
         if (!frames)
             return false;
             
-        var samplesPerFrame = (header.flags & FLAGS.LSF_EXT) ? 576 : 1152;
-        this.emit('duration', (frames * samplesPerFrame) / header.samplerate * 1000 | 0);
-            
+        this.emit('duration', (frames * header.nbsamples() * 32) / header.samplerate * 1000 | 0);
         return true;
     };
     
@@ -118,14 +144,23 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
                 floatingPoint: true
             });
             
-            this.parseDuration(header);
+            var sentDuration = this.parseDuration(header);
             stream.advance(off - stream.offset);
+            
+            // if there were no Xing/VBRI tags, guesstimate the duration based on data size and bitrate
+            this.dataSize = 0;
+            if (!sentDuration) {
+                this.on('end', function() {
+                    this.emit('duration', this.dataSize * 8 / header.bitrate * 1000 | 0);
+                });
+            }
             
             this.sentInfo = true;
         }
         
         while (stream.available(1)) {
             var buffer = stream.readSingleBuffer(stream.remainingBytes());
+            this.dataSize += buffer.length;
             this.emit('data', buffer);
         }
     };

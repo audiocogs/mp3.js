@@ -93,6 +93,28 @@ MP3FrameHeader.prototype.nbsamples = function() {
     return (this.layer === 1 ? 12 : ((this.layer === 3 && (this.flags & FLAGS.LSF_EXT)) ? 18 : 36));
 };
 
+MP3FrameHeader.prototype.framesize = function() {
+    if (this.bitrate === 0)
+        return null;
+    
+    var padding = (this.flags & FLAGS.PADDING ? 1 : 0);
+    switch (this.layer) {
+        case 1:
+            var size = (this.bitrate * 12) / this.samplerate | 0;
+            return (size + padding) * 4;
+            
+        case 2:
+            var size = (this.bitrate * 144) / this.samplerate | 0;
+            return size + padding;
+            
+        case 3:
+        default:
+            var lsf = this.flags & FLAGS.LSF_EXT ? 1 : 0;
+            var size = (this.bitrate * 144) / (this.samplerate << lsf) | 0;
+            return size + padding;
+    }
+};
+
 MP3FrameHeader.prototype.decode = function(stream) {
     this.flags        = 0;
     this.private_bits = 0;

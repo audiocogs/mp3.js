@@ -38,3 +38,9 @@ MP3Stream.prototype.doSync = function() {
         
     return true;
 };
+
+MP3Stream.prototype.reset = function(byteOffset) {
+    this.seek(byteOffset * 8);
+    this.next_frame = byteOffset;
+    this.sync = true;
+};
