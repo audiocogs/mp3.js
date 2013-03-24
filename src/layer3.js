@@ -1099,11 +1099,11 @@ Layer3.prototype.imdct_s = function (X, z)
 
         for (var i = 0; i < 3; ++i) {
             lo = X[Xptr + 0] * IMDCT_S[sptr][0] +
-                 X[Xptr + 1] * IMDCT_S[sptr][1] +
-                 X[Xptr + 2] * IMDCT_S[sptr][2] +
-                 X[Xptr + 3] * IMDCT_S[sptr][3] +
-                 X[Xptr + 4] * IMDCT_S[sptr][4] +
-                 X[Xptr + 5] * IMDCT_S[sptr][5];
+                 X[Xptr + 1] * IMDCT_S[sptr][1] +
+                 X[Xptr + 2] * IMDCT_S[sptr][2] +
+                 X[Xptr + 3] * IMDCT_S[sptr][3] +
+                 X[Xptr + 4] * IMDCT_S[sptr][4] +
+                 X[Xptr + 5] * IMDCT_S[sptr][5];
 
 
             y[yptr + i + 0] = lo;
