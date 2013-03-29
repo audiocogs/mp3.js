@@ -1,7 +1,7 @@
 //import "id3.js"
 
-MP3Demuxer = Demuxer.extend(function() {
-    Demuxer.register(this);
+var MP3Demuxer = AV.Demuxer.extend(function() {
+    AV.Demuxer.register(this);
     
     this.probe = function(stream) {
         var off = stream.offset;
@@ -12,18 +12,22 @@ MP3Demuxer = Demuxer.extend(function() {
             stream.advance(10 + id3header.length);
         
         // attempt to read the header of the first audio frame
-        var s = new MP3Stream(new Bitstream(stream));
-        var header = MP3FrameHeader.decode(s);
+        var s = new MP3Stream(new AV.Bitstream(stream));
+        var header = null;
+        
+        try {
+            header = MP3FrameHeader.decode(s);
+        } catch (e) {};
         
         // go back to the beginning, for other probes
-        stream.advance(off - stream.offset);
+        stream.seek(off);
         
         return !!header;
     };
     
     this.getID3v2Header = function(stream) {
         if (stream.peekString(0, 3) == 'ID3') {
-            stream = Stream.fromBuffer(stream.peekBuffer(0, 10));
+            stream = AV.Stream.fromBuffer(stream.peekBuffer(0, 10));
             stream.advance(3); // 'ID3'
 
             var major = stream.readUInt8();
@@ -58,25 +62,51 @@ MP3Demuxer = Demuxer.extend(function() {
         var tag = stream.readString(4);
         if (tag === 'Xing' || tag === 'Info') {
             var flags = stream.readUInt32();
-            if (flags & 0x1) 
+            if (flags & 1) 
                 frames = stream.readUInt32();
-        }
-        
-        // Check for VBRI tag (always 32 bytes after end of mpegaudio header)
-        stream.advance(offset + 4 + 32 - stream.offset);
-        tag = stream.readString(4);
-        if (tag == 'VBRI' && stream.readUInt16() === 1) { // Check tag version
-            stream.advance(4); // skip delay and quality
-            stream.advance(4); // skip size
-            frames = stream.readUInt32();
+                
+            if (flags & 2)
+                var size = stream.readUInt32();
+                
+            if (flags & 4 && frames && size) {
+                for (var i = 0; i < 100; i++) {
+                    var b = stream.readUInt8();
+                    var pos = b / 256 * size | 0;
+                    var time = i / 100 * (frames * header.nbsamples() * 32) | 0;
+                    this.addSeekPoint(pos, time);
+                }
+            }
+                
+            if (flags & 8)
+                stream.advance(4);
+                
+        } else {
+            // Check for VBRI tag (always 32 bytes after end of mpegaudio header)
+            stream.seek(offset + 4 + 32);
+            tag = stream.readString(4);
+            if (tag == 'VBRI' && stream.readUInt16() === 1) { // Check tag version
+                stream.advance(4); // skip delay and quality
+                stream.advance(4); // skip size
+                frames = stream.readUInt32();
+                
+                var entries = stream.readUInt16();
+                var scale = stream.readUInt16();
+                var bytesPerEntry = stream.readUInt16();
+                var framesPerEntry = stream.readUInt16();
+                var fn = 'readUInt' + (bytesPerEntry * 8);
+                
+                var pos = 0;
+                for (var i = 0; i < entries; i++) {
+                    this.addSeekPoint(pos, framesPerEntry * i);
+                    pos += stream[fn]();
+                }
+            }
         }
         
         if (!frames)
             return false;
             
-        var samplesPerFrame = (header.flags & FLAGS.LSF_EXT) ? 576 : 1152;
-        this.emit('duration', (frames * samplesPerFrame) / header.samplerate * 1000 | 0);
-            
+        this.emit('duration', (frames * header.nbsamples() * 32) / header.samplerate * 1000 | 0);
         return true;
     };
     
@@ -100,7 +130,7 @@ MP3Demuxer = Demuxer.extend(function() {
             
             // read the header of the first audio frame
             var off = stream.offset;
-            var s = new MP3Stream(new Bitstream(stream));
+            var s = new MP3Stream(new AV.Bitstream(stream));
             
             var header = MP3FrameHeader.decode(s);
             if (!header)
@@ -110,18 +140,28 @@ MP3Demuxer = Demuxer.extend(function() {
                 formatID: 'mp3',
                 sampleRate: header.samplerate,
                 channelsPerFrame: header.nchannels(),
-                bitrate: header.bitrate
+                bitrate: header.bitrate,
+                floatingPoint: true
             });
             
-            this.parseDuration(header);
+            var sentDuration = this.parseDuration(header);
             stream.advance(off - stream.offset);
+            
+            // if there were no Xing/VBRI tags, guesstimate the duration based on data size and bitrate
+            this.dataSize = 0;
+            if (!sentDuration) {
+                this.on('end', function() {
+                    this.emit('duration', this.dataSize * 8 / header.bitrate * 1000 | 0);
+                });
+            }
             
             this.sentInfo = true;
         }
         
         while (stream.available(1)) {
             var buffer = stream.readSingleBuffer(stream.remainingBytes());
-            this.emit('data', buffer, stream.remainingBytes() === 0);
+            this.dataSize += buffer.length;
+            this.emit('data', buffer);
         }
     };
 });
