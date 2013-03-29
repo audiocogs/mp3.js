@@ -33,6 +33,7 @@ function MP3Channel() {
 
 function Layer3() {
     this.imdct = new IMDCT();
+    this.si = new MP3SideInfo();
     
     // preallocate reusable typed arrays for performance
     this.xr = [new Float64Array(576), new Float64Array(576)];
@@ -127,7 +128,6 @@ Layer3.prototype.decode = function(stream, frame) {
     
     // decode main_data
     this.decodeMainData(ptr, frame, si, nch);
-
     
     // preload main_data buffer with up to 511 bytes for next frame(s)
     if (frame_free >= next_md_begin) {
@@ -165,7 +165,7 @@ Layer3.prototype.memcpy = function(dst, dstOffset, pSrc, srcOffset, length) {
 };
 
 Layer3.prototype.sideInfo = function(stream, nch, lsf) {
-    var si = new MP3SideInfo();    
+    var si = this.si;
     var data_bitlen = 0;
     var priv_bitlen = lsf ? ((nch === 1) ? 1 : 2) : ((nch === 1) ? 5 : 3);
     
