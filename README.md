@@ -1,10 +1,13 @@
-MP3.js - a JavaScript MP3 decoder based on JSMad
+MP3.js - a JavaScript MP3 for Aurora.js
 ================================================
 
 MP3.js is a refactored version of [JSMad](https://github.com/ofmlabs/jsmad) designed to run in the 
 [Aurora.js](https://github.com/audiocogs/aurora.js) audio framework.  It supports all of the
 features of JSMad and is released under the same GPLv2 license.  The code was reorganized a bit, and now
 uses all typed arrays for decoding at better performance.
+
+MP3.js adds support for layer I and II to the existing support for layer III. It also supports free bitrate streams, 
+and improves performance thanks to the use of typed arrays.
 
 ## Demo
 
