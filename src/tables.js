@@ -7,7 +7,7 @@
  * 63 is invalid. However, for better compatibility with current practices, we
  * add a 64th entry.
  */
-const SF_TABLE = new Float32Array([
+exports.SF_TABLE = new Float32Array([
     2.000000000000, 1.587401051968, 1.259921049895, 1.000000000000, 
     0.793700525984, 0.629960524947, 0.500000000000, 0.396850262992,
     0.314980262474, 0.250000000000, 0.198425131496, 0.157490131237,
@@ -172,7 +172,7 @@ const SFB_8000_MIXED = new Uint8Array([
                2,  2,  2,  2,  2,  2,  2,  2,  2, 26, 26, 26
 ]);
 
-const SFBWIDTH_TABLE = [
+exports.SFBWIDTH_TABLE = [
     { l: SFB_48000_LONG, s: SFB_48000_SHORT, m: SFB_48000_MIXED },
     { l: SFB_44100_LONG, s: SFB_44100_SHORT, m: SFB_44100_MIXED },
     { l: SFB_32000_LONG, s: SFB_32000_SHORT, m: SFB_32000_MIXED },
@@ -184,7 +184,7 @@ const SFBWIDTH_TABLE = [
     { l:  SFB_8000_LONG, s:  SFB_8000_SHORT, m:  SFB_8000_MIXED }
 ];
 
-const PRETAB = new Uint8Array([
+exports.PRETAB = new Uint8Array([
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 3, 2, 0
 ]);
 
@@ -194,7 +194,7 @@ const PRETAB = new Uint8Array([
  *
  * ROOT_TABLE[3 + x] = 2^(x/4)
  */
-const ROOT_TABLE = new Float32Array([
+exports.ROOT_TABLE = new Float32Array([
     /* 2^(-3/4) */ 0.59460355750136,
     /* 2^(-2/4) */ 0.70710678118655,
     /* 2^(-1/4) */ 0.84089641525371,
@@ -204,27 +204,27 @@ const ROOT_TABLE = new Float32Array([
     /* 2^(+3/4) */ 1.68179283050743
 ]);
 
-const CS = new Float32Array([
+exports.CS = new Float32Array([
     +0.857492926 , +0.881741997,
     +0.949628649 , +0.983314592,
     +0.995517816 , +0.999160558,
     +0.999899195 , +0.999993155
 ]);
 
-const CA = new Float32Array([
+exports.CA = new Float32Array([
     -0.514495755, -0.471731969,
     -0.313377454, -0.181913200,
     -0.094574193, -0.040965583,
     -0.014198569, -0.003699975
 ]);
 
-const COUNT1TABLE_SELECT = 0x01;
-const SCALEFAC_SCALE     = 0x02;
-const PREFLAG            = 0x04;
-const MIXED_BLOCK_FLAG   = 0x08;
+exports.COUNT1TABLE_SELECT = 0x01;
+exports.SCALEFAC_SCALE     = 0x02;
+exports.PREFLAG            = 0x04;
+exports.MIXED_BLOCK_FLAG   = 0x08;
 
-const I_STEREO  = 0x1;
-const MS_STEREO = 0x2;
+exports.I_STEREO  = 0x1;
+exports.MS_STEREO = 0x2;
 
 /*
  * windowing coefficients for long blocks
@@ -232,7 +232,7 @@ const MS_STEREO = 0x2;
  *
  * WINDOW_L[i] = sin((PI / 36) * (i + 1/2))
  */
-const WINDOW_L = new Float32Array([
+exports.WINDOW_L = new Float32Array([
     0.043619387, 0.130526192,
     0.216439614, 0.300705800,
     0.382683432, 0.461748613,
@@ -261,7 +261,7 @@ const WINDOW_L = new Float32Array([
  *
  * WINDOW_S[i] = sin((PI / 12) * (i + 1/2))
  */
-const WINDOW_S = new Float32Array([
+exports.WINDOW_S = new Float32Array([
     0.130526192, 0.382683432,
     0.608761429, 0.793353340,
     0.923879533, 0.991444861,
@@ -277,7 +277,7 @@ const WINDOW_S = new Float32Array([
  * is_ratio[i] = tan(i * (PI / 12))
  * IS_TABLE[i] = is_ratio[i] / (1 + is_ratio[i])
  */
-const IS_TABLE = new Float32Array([
+exports.IS_TABLE = new Float32Array([
     0.000000000,
     0.211324865,
     0.366025404,
@@ -294,7 +294,7 @@ const IS_TABLE = new Float32Array([
  * IS_LSF_TABLE[0][i] = (1 / sqrt(sqrt(2)))^(i + 1)
  * IS_LSF_TABLE[1][i] = (1 /      sqrt(2)) ^(i + 1)
  */
-const IS_LSF_TABLE = [
+exports.IS_LSF_TABLE = [
     new Float32Array([
         0.840896415,
         0.707106781,
@@ -335,7 +335,7 @@ const IS_LSF_TABLE = [
  * scalefactor bit lengths
  * derived from section 2.4.2.7 of ISO/IEC 11172-3
  */
-const SFLEN_TABLE = [
+exports.SFLEN_TABLE = [
     { slen1: 0, slen2: 0 }, { slen1: 0, slen2: 1 }, { slen1: 0, slen2: 2 }, { slen1: 0, slen2: 3 },
     { slen1: 3, slen2: 0 }, { slen1: 1, slen2: 1 }, { slen1: 1, slen2: 2 }, { slen1: 1, slen2: 3 },
     { slen1: 2, slen2: 1 }, { slen1: 2, slen2: 2 }, { slen1: 2, slen2: 3 }, { slen1: 3, slen2: 1 },
@@ -346,7 +346,7 @@ const SFLEN_TABLE = [
  * number of LSF scalefactor band values
  * derived from section 2.4.3.2 of ISO/IEC 13818-3
  */
-const NSFB_TABLE = [
+exports.NSFB_TABLE = [
     [ [  6,  5,  5, 5 ],
       [  9,  9,  9, 9 ],
       [  6,  9,  9, 9 ] ],
@@ -370,4 +370,5 @@ const NSFB_TABLE = [
     [ [  8,  8,  5, 0 ],
       [ 15, 12,  9, 0 ],
       [  6, 18,  9, 0 ] ]
- ];
+];
+ 

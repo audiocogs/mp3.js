@@ -1,5 +1,7 @@
+var utils = require('./utils');
+
 function MP3Synth() {
-    this.filter = makeArray([2, 2, 2, 16, 8]); // polyphase filterbank outputs
+    this.filter = utils.makeArray([2, 2, 2, 16, 8]); // polyphase filterbank outputs
     this.phase = 0;
     
     this.pcm = {
@@ -1103,3 +1105,5 @@ MP3Synth.prototype.frame = function (frame) {
     this.full(frame, nch, ns);
     this.phase = (this.phase + ns) % 16;
 };
+
+module.exports = MP3Synth;

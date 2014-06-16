@@ -1,3 +1,5 @@
+var AV = require('av');
+
 const ENCODINGS = ['latin1', 'utf16-bom', 'utf16-be', 'utf8'];
 
 var ID3Stream = AV.Base.extend({
@@ -166,7 +168,7 @@ var ID3Stream = AV.Base.extend({
 });
 
 // ID3 v2.3 and v2.4 support
-var ID3v23Stream = ID3Stream.extend({
+exports.ID3v23Stream = ID3Stream.extend({
     readHeader: function() {
         var identifier = this.stream.readString(4);        
         var length = 0;
@@ -568,7 +570,7 @@ var ID3v23Stream = ID3Stream.extend({
 });
 
 // ID3 v2.2 support
-var ID3v22Stream = ID3v23Stream.extend({    
+exports.ID3v22Stream = exports.ID3v23Stream.extend({    
     readHeader: function() {
         var id = this.stream.readString(3);
         

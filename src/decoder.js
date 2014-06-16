@@ -1,10 +1,11 @@
-//import "stream.js"
-//import "frame.js"
-//import "synth.js"
-
-//import "layer1.js"
-//import "layer2.js"
-//import "layer3.js"
+var AV = require('av');
+var MP3FrameHeader = require('./header');
+var MP3Stream = require('./stream');
+var MP3Frame = require('./frame');
+var MP3Synth = require('./synth');
+var Layer1 = require('./layer1');
+var Layer2 = require('./layer2');
+var Layer3 = require('./layer3');
 
 var MP3Decoder = AV.Decoder.extend(function() {
     AV.Decoder.register('mp3', this);
@@ -110,3 +111,5 @@ var MP3Decoder = AV.Decoder.extend(function() {
         return timestamp;
     };
 });
+
+module.exports = MP3Decoder;
