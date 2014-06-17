@@ -23,22 +23,17 @@ refactor for MP3.js was performed by [@devongovett](https://twitter.com/devongov
 
 ## Building
     
-Currently, the [importer](https://github.com/devongovett/importer) module is used to build MP3.js.  You can run
-the development server on port `3030` by first installing `importer` with npm, and then running it like this:
+We use [browserify](https://github.com/substack/node-browserify) to build MP3.js.  You can download a
+prebuilt version from the Github [releases](https://github.com/audiocogs/mp3.js/releases) page. 
+To build MP3.js for the browser yourself, use the following commands:
 
-    npm install importer -g
-    importer mp3.js -p 3030
+    npm install
+    make browser
     
-You can also build a static version like this:
+This will place a built `mp3.js` file, as well as a source map in the `build/` directory.
 
-    importer mp3.js build.js
-
-mp3.js depends on [Aurora.js](https://github.com/audiocogs/aurora.js), our audio codec framework.  You will need
-to include either a prebuilt version of Aurora.js, or start another `importer` development server for Aurora before
-mp3.js will work.  You can use the [test.html](https://github.com/audiocogs/aurora.js/blob/master/src/test.html) file
-in the Aurora.js repo as an example of how to use the APIs to play back audio files.  Just include mp3.js on that 
-page as well in order to add support for FLAC files.
-
+MP3.js depends on [Aurora.js](https://github.com/audiocogs/aurora.js), our audio codec framework.
+For detailed information on how to use Aurora.js, check out the [documentation](https://github.com/audiocogs/aurora.js/wiki).
 ## License
 
 MP3.js follows the same jsmad license. MP3.js is available under the terms of the GNU General Public License, 
