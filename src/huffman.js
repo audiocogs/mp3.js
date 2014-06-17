@@ -2948,9 +2948,8 @@ function MP3Hufftable(table, linbits, startbits) {
 };
 
 /* external tables */
-const huff_quad_table = [ hufftabA, hufftabB ];
-
-const huff_pair_table = [
+exports.huff_quad_table = [ hufftabA, hufftabB ];
+exports.huff_pair_table = [
   /*  0 */ new MP3Hufftable(hufftab0,   0, 0),
   /*  1 */ new MP3Hufftable(hufftab1,   0, 3),
   /*  2 */ new MP3Hufftable(hufftab2,   0, 3),

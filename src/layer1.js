@@ -1,8 +1,11 @@
-//import "tables.js"
+var tables = require('./tables');
+var MP3FrameHeader = require('./header');
+var MP3Frame = require('./frame');
+var utils = require('./utils');
 
 function Layer1() {    
-    this.allocation = makeArray([2, 32], Uint8Array);
-    this.scalefactor = makeArray([2, 32], Uint8Array);
+    this.allocation = utils.makeArray([2, 32], Uint8Array);
+    this.scalefactor = utils.makeArray([2, 32], Uint8Array);
 }
 
 MP3Frame.layers[1] = Layer1;
@@ -21,12 +24,12 @@ Layer1.prototype.decode = function(stream, frame) {
     var nch = header.nchannels();
     
     var bound = 32;
-    if (header.mode === MODE.JOINT_STEREO) {
-        header.flags |= FLAGS.I_STEREO;
+    if (header.mode === MP3FrameHeader.MODE.JOINT_STEREO) {
+        header.flags |= MP3FrameHeader.FLAGS.I_STEREO;
         bound = 4 + header.mode_extension * 4;
     }
     
-    if (header.flags & FLAGS.PROTECTION) {
+    if (header.flags & MP3FrameHeader.FLAGS.PROTECTION) {
         // TODO: crc check
     }
     
@@ -72,7 +75,7 @@ Layer1.prototype.decode = function(stream, frame) {
         for (var sb = 0; sb < bound; sb++) {
             for (var ch = 0; ch < nch; ch++) {
                 var nb = allocation[ch][sb];
-                frame.sbsample[ch][s][sb] = nb ? this.sample(stream, nb) * SF_TABLE[scalefactor[ch][sb]] : 0;
+                frame.sbsample[ch][s][sb] = nb ? this.sample(stream, nb) * tables.SF_TABLE[scalefactor[ch][sb]] : 0;
             }
         }
         
@@ -82,7 +85,7 @@ Layer1.prototype.decode = function(stream, frame) {
                 var sample = this.sample(stream, nb);
                 
                 for (var ch = 0; ch < nch; ch++) {
-                    frame.sbsample[ch][s][sb] = sample * SF_TABLE[scalefactor[ch][sb]];
+                    frame.sbsample[ch][s][sb] = sample * tables.SF_TABLE[scalefactor[ch][sb]];
                 }
             } else {
                 for (var ch = 0; ch < nch; ch++) {
@@ -106,3 +109,5 @@ Layer1.prototype.sample = function(stream, nb) {
     sample += 1 >> (nb - 1);
     return sample * LINEAR_TABLE[nb - 2];
 };
+
+module.exports = Layer1;

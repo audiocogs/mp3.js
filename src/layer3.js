@@ -1,6 +1,10 @@
-//import "tables.js"
-//import "huffman.js"
-//import "imdct.js"
+var AV = require('av');
+var tables = require('./tables');
+var MP3FrameHeader = require('./header');
+var MP3Frame = require('./frame');
+var huffman = require('./huffman');
+var IMDCT = require('./imdct');
+var utils = require('./utils');
 
 function MP3SideInfo() {
     this.main_data_begin = null;
@@ -42,7 +46,7 @@ function Layer3() {
     this.modes = new Int16Array(39);
     this.output = new Float64Array(36);
     
-    this.tmp = makeArray([32, 3, 6]);
+    this.tmp = utils.makeArray([32, 3, 6]);
     this.tmp2 = new Float64Array(32 * 3 * 6);
 }
 
@@ -54,7 +58,7 @@ Layer3.prototype.decode = function(stream, frame) {
     var md_len = 0;
     
     var nch = header.nchannels();
-    var si_len = (header.flags & FLAGS.LSF_EXT) ? (nch === 1 ? 9 : 17) : (nch === 1 ? 17 : 32);
+    var si_len = (header.flags & MP3FrameHeader.FLAGS.LSF_EXT) ? (nch === 1 ? 9 : 17) : (nch === 1 ? 17 : 32);
         
     // check frame sanity
     if (stream.next_frame - stream.nextByte() < si_len) {
@@ -63,12 +67,12 @@ Layer3.prototype.decode = function(stream, frame) {
     }
     
     // check CRC word
-    if (header.flags & FLAGS.PROTECTION) {
+    if (header.flags & MP3FrameHeader.FLAGS.PROTECTION) {
         // TODO: crc check
     }
     
     // decode frame side information
-    var sideInfo = this.sideInfo(stream, nch, header.flags & FLAGS.LSF_EXT);        
+    var sideInfo = this.sideInfo(stream, nch, header.flags & MP3FrameHeader.FLAGS.LSF_EXT);        
     var si = sideInfo.si;
     var data_bitlen = sideInfo.data_bitlen;
     var priv_bitlen = sideInfo.priv_bitlen;
@@ -110,8 +114,8 @@ Layer3.prototype.decode = function(stream, frame) {
             var old_md_len = stream.md_len;
             
             if (md_len > si.main_data_begin) {
-                if (stream.md_len + md_len - si.main_data_begin > BUFFER_MDLEN) {
-                    throw new Error("Assertion failed: (stream.md_len + md_len - si.main_data_begin <= MAD_BUFFER_MDLEN)");
+                if (stream.md_len + md_len - si.main_data_begin > MP3FrameHeader.BUFFER_MDLEN) {
+                    throw new Error("Assertion failed: (stream.md_len + md_len - si.main_data_begin <= MAD_MP3FrameHeader.BUFFER_MDLEN)");
                 }
                 
                 frame_used = md_len - si.main_data_begin;
@@ -211,7 +215,7 @@ Layer3.prototype.sideInfo = function(stream, nch, lsf) {
                 channel.region1_count = 36;
 
                 if (stream.read(1))
-                    channel.flags |= MIXED_BLOCK_FLAG;
+                    channel.flags |= tables.MIXED_BLOCK_FLAG;
                 else if (channel.block_type === 2)
                     channel.region0_count = 8;
 
@@ -246,18 +250,18 @@ Layer3.prototype.decodeMainData = function(stream, frame, si, nch) {
     var header = frame.header;
     var sfreq = header.samplerate;
 
-    if (header.flags & FLAGS.MPEG_2_5_EXT)
+    if (header.flags & MP3FrameHeader.FLAGS.MPEG_2_5_EXT)
         sfreq *= 2;
 
     // 48000 => 0, 44100 => 1, 32000 => 2,
     // 24000 => 3, 22050 => 4, 16000 => 5
     var sfreqi = ((sfreq >>  7) & 0x000f) + ((sfreq >> 15) & 0x0001) - 8;
 
-    if (header.flags & FLAGS.MPEG_2_5_EXT)
+    if (header.flags & MP3FrameHeader.FLAGS.MPEG_2_5_EXT)
         sfreqi += 3;
         
     // scalefactors, Huffman decoding, requantization
-    var ngr = (header.flags & FLAGS.LSF_EXT) ? 1 : 2;
+    var ngr = (header.flags & MP3FrameHeader.FLAGS.LSF_EXT) ? 1 : 2;
     var xr = this.xr;
     
     for (var gr = 0; gr < ngr; ++gr) {
@@ -269,12 +273,12 @@ Layer3.prototype.decodeMainData = function(stream, frame, si, nch) {
             var channel = granule.ch[ch];
             var part2_length;
             
-            sfbwidth[ch] = SFBWIDTH_TABLE[sfreqi].l;
+            sfbwidth[ch] = tables.SFBWIDTH_TABLE[sfreqi].l;
             if (channel.block_type === 2) {
-                sfbwidth[ch] = (channel.flags & MIXED_BLOCK_FLAG) ? SFBWIDTH_TABLE[sfreqi].m : SFBWIDTH_TABLE[sfreqi].s;
+                sfbwidth[ch] = (channel.flags & tables.MIXED_BLOCK_FLAG) ? tables.SFBWIDTH_TABLE[sfreqi].m : tables.SFBWIDTH_TABLE[sfreqi].s;
             }
 
-            if (header.flags & FLAGS.LSF_EXT) {
+            if (header.flags & MP3FrameHeader.FLAGS.LSF_EXT) {
                 part2_length = this.scalefactors_lsf(stream, channel, ch === 0 ? 0 : si.gr[1].ch[1], header.mode_extension);
             } else {
                 part2_length = this.scalefactors(stream, channel, si.gr[0].ch[ch], gr === 0 ? 0 : si.scfsi[ch]);
@@ -284,7 +288,7 @@ Layer3.prototype.decodeMainData = function(stream, frame, si, nch) {
         }
         
         // joint stereo processing
-        if (header.mode === MODE.JOINT_STEREO && header.mode_extension !== 0)
+        if (header.mode === MP3FrameHeader.MODE.JOINT_STEREO && header.mode_extension !== 0)
             this.stereo(xr, si.gr, gr, header, sfbwidth[0]);
         
         // reordering, alias reduction, IMDCT, overlap-add, frequency inversion
@@ -305,16 +309,16 @@ Layer3.prototype.decodeMainData = function(stream, frame, si, nch) {
                  * lower two subbands of mixed blocks. Most other implementations do
                  * this, so by default we will too.
                  */
-                if (channel.flags & MIXED_BLOCK_FLAG)
+                if (channel.flags & tables.MIXED_BLOCK_FLAG)
                     this.aliasreduce(xr[ch], 36);
             } else {
                 this.aliasreduce(xr[ch], 576);
             }
             
             // subbands 0-1
-            if (channel.block_type !== 2 || (channel.flags & MIXED_BLOCK_FLAG)) {
+            if (channel.block_type !== 2 || (channel.flags & tables.MIXED_BLOCK_FLAG)) {
                 var block_type = channel.block_type;
-                if (channel.flags & MIXED_BLOCK_FLAG)
+                if (channel.flags & tables.MIXED_BLOCK_FLAG)
                     block_type = 0;
 
                 // long blocks
@@ -373,14 +377,14 @@ Layer3.prototype.decodeMainData = function(stream, frame, si, nch) {
 
 Layer3.prototype.scalefactors = function(stream, channel, gr0ch, scfsi) {
     var start = stream.offset();
-    var slen1 = SFLEN_TABLE[channel.scalefac_compress].slen1;
-    var slen2 = SFLEN_TABLE[channel.scalefac_compress].slen2;
+    var slen1 = tables.SFLEN_TABLE[channel.scalefac_compress].slen1;
+    var slen2 = tables.SFLEN_TABLE[channel.scalefac_compress].slen2;
     var sfbi;
     
     if (channel.block_type === 2) {
         sfbi = 0;
 
-        var nsfb = (channel.flags & MIXED_BLOCK_FLAG) ? 8 + 3 * 3 : 6 * 3;
+        var nsfb = (channel.flags & tables.MIXED_BLOCK_FLAG) ? 8 + 3 * 3 : 6 * 3;
         while (nsfb--)
             channel.scalefac[sfbi++] = stream.read(slen1);
 
@@ -433,18 +437,18 @@ Layer3.prototype.scalefactors = function(stream, channel, gr0ch, scfsi) {
 Layer3.prototype.scalefactors_lsf = function(stream, channel, gr1ch, mode_extension) {
     var start = stream.offset();
     var scalefac_compress = channel.scalefac_compress;
-    var index = channel.block_type === 2 ? (channel.flags & MIXED_BLOCK_FLAG ? 2 : 1) : 0;
+    var index = channel.block_type === 2 ? (channel.flags & tables.MIXED_BLOCK_FLAG ? 2 : 1) : 0;
     var slen = new Int32Array(4);
     var nsfb;
     
-    if (!((mode_extension & I_STEREO) && gr1ch)) {
+    if (!((mode_extension & tables.I_STEREO) && gr1ch)) {
         if (scalefac_compress < 400) {
             slen[0] = (scalefac_compress >>> 4) / 5;
             slen[1] = (scalefac_compress >>> 4) % 5;
             slen[2] = (scalefac_compress % 16) >>> 2;
             slen[3] =  scalefac_compress %  4;
         
-            nsfb = NSFB_TABLE[0][index];
+            nsfb = tables.NSFB_TABLE[0][index];
         } else if (scalefac_compress < 500) {
             scalefac_compress -= 400;
 
@@ -453,7 +457,7 @@ Layer3.prototype.scalefactors_lsf = function(stream, channel, gr1ch, mode_extens
             slen[2] =  scalefac_compress % 4;
             slen[3] = 0;
 
-            nsfb = NSFB_TABLE[1][index];
+            nsfb = tables.NSFB_TABLE[1][index];
         } else {
             scalefac_compress -= 500;
 
@@ -462,8 +466,8 @@ Layer3.prototype.scalefactors_lsf = function(stream, channel, gr1ch, mode_extens
             slen[2] = 0;
             slen[3] = 0;
 
-            channel.flags |= PREFLAG;
-            nsfb = NSFB_TABLE[2][index];
+            channel.flags |= tables.PREFLAG;
+            nsfb = tables.NSFB_TABLE[2][index];
         }
         
         var n = 0;
@@ -476,7 +480,7 @@ Layer3.prototype.scalefactors_lsf = function(stream, channel, gr1ch, mode_extens
         while (n < 39) {
             channel.scalefac[n++] = 0;
         }
-    } else {  // (mode_extension & I_STEREO) && gr1ch (i.e. ch == 1)
+    } else {  // (mode_extension & tables.I_STEREO) && gr1ch (i.e. ch == 1)
         scalefac_compress >>>= 1;
         
         if (scalefac_compress < 180) {
@@ -485,7 +489,7 @@ Layer3.prototype.scalefactors_lsf = function(stream, channel, gr1ch, mode_extens
             slen[2] = (scalefac_compress % 36) % 6;
             slen[3] = 0;
 
-            nsfb = NSFB_TABLE[3][index];
+            nsfb = tables.NSFB_TABLE[3][index];
         } else if (scalefac_compress < 244) {
             scalefac_compress -= 180;
 
@@ -494,7 +498,7 @@ Layer3.prototype.scalefactors_lsf = function(stream, channel, gr1ch, mode_extens
             slen[2] =  scalefac_compress %  4;
             slen[3] = 0;
 
-            nsfb = NSFB_TABLE[4][index];
+            nsfb = tables.NSFB_TABLE[4][index];
         } else {
             scalefac_compress -= 244;
 
@@ -503,7 +507,7 @@ Layer3.prototype.scalefactors_lsf = function(stream, channel, gr1ch, mode_extens
             slen[2] = 0;
             slen[3] = 0;
 
-            nsfb = NSFB_TABLE[5][index];
+            nsfb = tables.NSFB_TABLE[5][index];
         }
         
         var n = 0;
@@ -555,7 +559,7 @@ Layer3.prototype.huffmanDecode = function(stream, xr, channel, sfbwidth, part2_l
     var sfbound = xrptr + sfbwidth[sfbwidthptr++];
     var rcount  = channel.region0_count + 1;
     
-    var entry = huff_pair_table[channel.table_select[region]];
+    var entry = huffman.huff_pair_table[channel.table_select[region]];
     var table     = entry.table;
     var linbits   = entry.linbits;
     var startbits = entry.startbits;
@@ -579,7 +583,7 @@ Layer3.prototype.huffmanDecode = function(stream, xr, channel, sfbwidth, part2_l
                  else
                      rcount = 0; // all remaining
 
-                 entry     = huff_pair_table[channel.table_select[++region]];
+                 entry     = huffman.huff_pair_table[channel.table_select[++region]];
                  table     = entry.table;
                  linbits   = entry.linbits;
                  startbits = entry.startbits;
@@ -729,7 +733,7 @@ Layer3.prototype.huffmanDecode = function(stream, xr, channel, sfbwidth, part2_l
         throw new Error('Huffman data overrun');
     
     // count1    
-    var table = huff_quad_table[channel.flags & COUNT1TABLE_SELECT];
+    var table = huffman.huff_quad_table[channel.flags & tables.COUNT1TABLE_SELECT];
     var requantized = this.requantize(1, exp);
     
     while (cachesz + bits_left > 0 && xrptr <= 572) {
@@ -793,8 +797,8 @@ Layer3.prototype.huffmanDecode = function(stream, xr, channel, sfbwidth, part2_l
         }
     }
     
-    if (-bits_left > BUFFER_GUARD * 8) {
-        throw new Error("assertion failed: (-bits_left <= BUFFER_GUARD * CHAR_BIT)");
+    if (-bits_left > MP3FrameHeader.BUFFER_GUARD * 8) {
+        throw new Error("assertion failed: (-bits_left <= MP3FrameHeader.BUFFER_GUARD * CHAR_BIT)");
     }
     
     // rzero
@@ -826,17 +830,17 @@ Layer3.prototype.requantize = function(value, exp) {
 
 Layer3.prototype.exponents = function(channel, sfbwidth, exponents) {
     var gain = channel.global_gain - 210;
-    var scalefac_multiplier = (channel.flags & SCALEFAC_SCALE) ? 2 : 1;
+    var scalefac_multiplier = (channel.flags & tables.SCALEFAC_SCALE) ? 2 : 1;
     
     if (channel.block_type === 2) {
         var sfbi = 0, l = 0;
         
-        if (channel.flags & MIXED_BLOCK_FLAG) {
-            var premask = (channel.flags & PREFLAG) ? ~0 : 0;
+        if (channel.flags & tables.MIXED_BLOCK_FLAG) {
+            var premask = (channel.flags & tables.PREFLAG) ? ~0 : 0;
             
             // long block subbands 0-1
             while (l < 36) {
-                exponents[sfbi] = gain - ((channel.scalefac[sfbi] + (PRETAB[sfbi] & premask)) << scalefac_multiplier);
+                exponents[sfbi] = gain - ((channel.scalefac[sfbi] + (tables.PRETAB[sfbi] & premask)) << scalefac_multiplier);
                 l += sfbwidth[sfbi++];
             }
         }
@@ -855,9 +859,9 @@ Layer3.prototype.exponents = function(channel, sfbwidth, exponents) {
             sfbi += 3;
         }
     } else {
-        if (channel.flags & PREFLAG) {
+        if (channel.flags & tables.PREFLAG) {
             for (var sfbi = 0; sfbi < 22; sfbi++) {
-                exponents[sfbi] = gain - ((channel.scalefac[sfbi] + PRETAB[sfbi]) << scalefac_multiplier);
+                exponents[sfbi] = gain - ((channel.scalefac[sfbi] + tables.PRETAB[sfbi]) << scalefac_multiplier);
             }
         } else {
             for (var sfbi = 0; sfbi < 22; sfbi++) {
@@ -872,18 +876,18 @@ Layer3.prototype.stereo = function(xr, granules, gr, header, sfbwidth) {
     var modes = this.modes;
     var sfbi, l, n, i;
     
-    if (granule.ch[0].block_type !== granule.ch[1].block_type || (granule.ch[0].flags & MIXED_BLOCK_FLAG) !== (granule.ch[1].flags & MIXED_BLOCK_FLAG))
+    if (granule.ch[0].block_type !== granule.ch[1].block_type || (granule.ch[0].flags & tables.MIXED_BLOCK_FLAG) !== (granule.ch[1].flags & tables.MIXED_BLOCK_FLAG))
         throw new Error('incompatible stereo block_type');
         
     for (var i = 0; i < 39; i++)
         modes[i] = header.mode_extension;
         
     // intensity stereo
-    if (header.mode_extension & I_STEREO) {
+    if (header.mode_extension & tables.I_STEREO) {
         var right_ch = granule.ch[1];
         var right_xr = xr[1];
         
-        header.flags |= FLAGS.I_STEREO;
+        header.flags |= MP3FrameHeader.FLAGS.tables.I_STEREO;
          
         // first determine which scalefactor bands are to be processed
         if (right_ch.block_type === 2) {
@@ -892,7 +896,7 @@ Layer3.prototype.stereo = function(xr, granules, gr, header, sfbwidth) {
             lower = start = max = bound[0] = bound[1] = bound[2] = 0;
             sfbi = l = 0;
             
-            if (right_ch.flags & MIXED_BLOCK_FLAG) {
+            if (right_ch.flags & tables.MIXED_BLOCK_FLAG) {
                 while (l < 36) {
                     n = sfbwidth[sfbi++];
 
@@ -931,13 +935,13 @@ Layer3.prototype.stereo = function(xr, granules, gr, header, sfbwidth) {
 
             // long blocks
             for (i = 0; i < lower; ++i)
-                modes[i] = header.mode_extension & ~I_STEREO;
+                modes[i] = header.mode_extension & ~tables.I_STEREO;
 
             // short blocks
             w = 0;
             for (i = start; i < max; ++i) {
                 if (i < bound[w])
-                    modes[i] = header.mode_extension & ~I_STEREO;
+                    modes[i] = header.mode_extension & ~tables.I_STEREO;
 
                 w = (w + 1) % 3;
             }
@@ -957,24 +961,24 @@ Layer3.prototype.stereo = function(xr, granules, gr, header, sfbwidth) {
             }
 
             for (i = 0; i < bound; ++i)
-                modes[i] = header.mode_extension & ~I_STEREO;
+                modes[i] = header.mode_extension & ~tables.I_STEREO;
         }
         
         // now do the actual processing
-        if (header.flags & FLAGS.LSF_EXT) {
+        if (header.flags & MP3FrameHeader.FLAGS.LSF_EXT) {
             var illegal_pos = granules[gr + 1].ch[1].scalefac;
 
             // intensity_scale
-            var lsf_scale = IS_LSF_TABLE[right_ch.scalefac_compress & 0x1];
+            var lsf_scale = IS_Ltables.SF_TABLE[right_ch.scalefac_compress & 0x1];
             
             for (sfbi = l = 0; l < 576; ++sfbi, l += n) {
                 n = sfbwidth[sfbi];
 
-                if (!(modes[sfbi] & I_STEREO))
+                if (!(modes[sfbi] & tables.I_STEREO))
                     continue;
 
                 if (illegal_pos[sfbi]) {
-                    modes[sfbi] &= ~I_STEREO;
+                    modes[sfbi] &= ~tables.I_STEREO;
                     continue;
                 }
 
@@ -1002,35 +1006,35 @@ Layer3.prototype.stereo = function(xr, granules, gr, header, sfbwidth) {
             for (sfbi = l = 0; l < 576; ++sfbi, l += n) {
                 n = sfbwidth[sfbi];
 
-                if (!(modes[sfbi] & I_STEREO))
+                if (!(modes[sfbi] & tables.I_STEREO))
                     continue;
 
                 is_pos = right_ch.scalefac[sfbi];
 
                 if (is_pos >= 7) {  // illegal intensity position
-                    modes[sfbi] &= ~I_STEREO;
+                    modes[sfbi] &= ~tables.I_STEREO;
                     continue;
                 }
 
                 for (i = 0; i < n; ++i) {
                     var left = xr[0][l + i];
-                    xr[0][l + i] = left * IS_TABLE[is_pos];
-                    xr[1][l + i] = left * IS_TABLE[6 - is_pos];
+                    xr[0][l + i] = left * tables.IS_TABLE[is_pos];
+                    xr[1][l + i] = left * tables.IS_TABLE[6 - is_pos];
                 }
             }
         }
     }
     
     // middle/side stereo
-    if (header.mode_extension & MS_STEREO) {
-        header.flags |= FLAGS.MS_STEREO;
+    if (header.mode_extension & tables.MS_STEREO) {
+        header.flags |= tables.MS_STEREO;
 
-        var invsqrt2 = ROOT_TABLE[3 + -2];
+        var invsqrt2 = tables.ROOT_TABLE[3 + -2];
 
         for (sfbi = l = 0; l < 576; ++sfbi, l += n) {
             n = sfbwidth[sfbi];
 
-            if (modes[sfbi] !== MS_STEREO)
+            if (modes[sfbi] !== tables.MS_STEREO)
                 continue;
 
             for (i = 0; i < n; ++i) {
@@ -1050,8 +1054,8 @@ Layer3.prototype.aliasreduce = function(xr, lines) {
             var a = xr[xrPointer - i - 1];
             var b = xr[xrPointer + i];
 
-            xr[xrPointer - i - 1] = a * CS[i] - b * CA[i];
-            xr[xrPointer + i] = b * CS[i] + a * CA[i];
+            xr[xrPointer - i - 1] = a * tables.CS[i] - b * tables.CA[i];
+            xr[xrPointer + i] = b * tables.CS[i] + a * tables.CA[i];
         }
     }
 };
@@ -1064,19 +1068,19 @@ Layer3.prototype.imdct_l = function (X, z, block_type) {
     // windowing
     switch (block_type) {
         case 0:  // normal window
-            for (var i = 0; i < 36; ++i) z[i] = z[i] * WINDOW_L[i];
+            for (var i = 0; i < 36; ++i) z[i] = z[i] * tables.WINDOW_L[i];
             break;
 
         case 1:  // start block
-            for (var i =  0; i < 18; ++i) z[i] = z[i] * WINDOW_L[i];
-            for (var i = 24; i < 30; ++i) z[i] = z[i] * WINDOW_S[i - 18];
+            for (var i =  0; i < 18; ++i) z[i] = z[i] * tables.WINDOW_L[i];
+            for (var i = 24; i < 30; ++i) z[i] = z[i] * tables.WINDOW_S[i - 18];
             for (var i = 30; i < 36; ++i) z[i] = 0;
             break;
 
         case 3:  // stop block
             for (var i =  0; i <  6; ++i) z[i] = 0;
-            for (var i =  6; i < 12; ++i) z[i] = z[i] * WINDOW_S[i - 6];
-            for (var i = 18; i < 36; ++i) z[i] = z[i] * WINDOW_L[i];
+            for (var i =  6; i < 12; ++i) z[i] = z[i] * tables.WINDOW_S[i - 6];
+            for (var i = 18; i < 36; ++i) z[i] = z[i] * tables.WINDOW_L[i];
             break;
     }
 };
@@ -1084,8 +1088,7 @@ Layer3.prototype.imdct_l = function (X, z, block_type) {
 /*
  * perform IMDCT and windowing for short blocks
  */
-Layer3.prototype.imdct_s = function (X, z)
-{
+Layer3.prototype.imdct_s = function (X, z) {
     var yptr = 0;
     var wptr;
     var Xptr = 0;
@@ -1098,12 +1101,12 @@ Layer3.prototype.imdct_s = function (X, z)
         var sptr = 0;
 
         for (var i = 0; i < 3; ++i) {
-            lo = X[Xptr + 0] * IMDCT_S[sptr][0] +
-                 X[Xptr + 1] * IMDCT_S[sptr][1] +
-                 X[Xptr + 2] * IMDCT_S[sptr][2] +
-                 X[Xptr + 3] * IMDCT_S[sptr][3] +
-                 X[Xptr + 4] * IMDCT_S[sptr][4] +
-                 X[Xptr + 5] * IMDCT_S[sptr][5];
+            lo = X[Xptr + 0] * IMDCT.S[sptr][0] +
+                 X[Xptr + 1] * IMDCT.S[sptr][1] +
+                 X[Xptr + 2] * IMDCT.S[sptr][2] +
+                 X[Xptr + 3] * IMDCT.S[sptr][3] +
+                 X[Xptr + 4] * IMDCT.S[sptr][4] +
+                 X[Xptr + 5] * IMDCT.S[sptr][5];
 
 
             y[yptr + i + 0] = lo;
@@ -1111,12 +1114,12 @@ Layer3.prototype.imdct_s = function (X, z)
 
             ++sptr;
 
-            lo = X[Xptr + 0] * IMDCT_S[sptr][0] +
-                 X[Xptr + 1] * IMDCT_S[sptr][1] +
-                 X[Xptr + 2] * IMDCT_S[sptr][2] +
-                 X[Xptr + 3] * IMDCT_S[sptr][3] +
-                 X[Xptr + 4] * IMDCT_S[sptr][4] +
-                 X[Xptr + 5] * IMDCT_S[sptr][5];
+            lo = X[Xptr + 0] * IMDCT.S[sptr][0] +
+                 X[Xptr + 1] * IMDCT.S[sptr][1] +
+                 X[Xptr + 2] * IMDCT.S[sptr][2] +
+                 X[Xptr + 3] * IMDCT.S[sptr][3] +
+                 X[Xptr + 4] * IMDCT.S[sptr][4] +
+                 X[Xptr + 5] * IMDCT.S[sptr][5];
 
             y[yptr +  i + 6] = lo;
             y[yptr + 11 - i] = y[yptr + i + 6];
@@ -1134,18 +1137,18 @@ Layer3.prototype.imdct_s = function (X, z)
 
     for (var i = 0; i < 6; ++i) {
         z[i + 0] = 0;
-        z[i + 6] = y[yptr +  0 + 0] * WINDOW_S[wptr + 0];
+        z[i + 6] = y[yptr +  0 + 0] * tables.WINDOW_S[wptr + 0];
 
-        lo = y[yptr + 0 + 6] * WINDOW_S[wptr + 6] +
-             y[yptr + 12 + 0] * WINDOW_S[wptr + 0];
+        lo = y[yptr + 0 + 6] * tables.WINDOW_S[wptr + 6] +
+             y[yptr + 12 + 0] * tables.WINDOW_S[wptr + 0];
 
         z[i + 12] = lo;
 
-        lo = y[yptr + 12 + 6] * WINDOW_S[wptr + 6] +
-             y[yptr + 24 + 0] * WINDOW_S[wptr + 0];
+        lo = y[yptr + 12 + 6] * tables.WINDOW_S[wptr + 6] +
+             y[yptr + 24 + 0] * tables.WINDOW_S[wptr + 0];
 
         z[i + 18] = lo;
-        z[i + 24] = y[yptr + 24 + 6] * WINDOW_S[wptr + 6];
+        z[i + 24] = y[yptr + 24 + 6] * tables.WINDOW_S[wptr + 6];
         z[i + 30] = 0;
 
         ++yptr;
@@ -1181,7 +1184,7 @@ Layer3.prototype.reorder = function (xr, channel, sfbwidth) {
     // this is probably wrong for 8000 Hz mixed blocks
 
     var sb = 0;
-    if (channel.flags & MIXED_BLOCK_FLAG) {
+    if (channel.flags & tables.MIXED_BLOCK_FLAG) {
         var sb = 2;
 
         var l = 0;
@@ -1227,3 +1230,5 @@ Layer3.prototype.reorder = function (xr, channel, sfbwidth) {
         xr[18 * sb + i] = tmp2[sb + i];
     }
 };
+
+module.exports = Layer3;

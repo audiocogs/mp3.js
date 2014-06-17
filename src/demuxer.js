@@ -1,4 +1,8 @@
-//import "id3.js"
+var AV = require('av');
+var ID3v23Stream = require('./id3').ID3v23Stream;
+var ID3v22Stream = require('./id3').ID3v22Stream;
+var MP3FrameHeader = require('./header');
+var MP3Stream = require('./stream');
 
 var MP3Demuxer = AV.Demuxer.extend(function() {
     AV.Demuxer.register(this);
@@ -58,7 +62,7 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
             return false;
         
         // Check for Xing/Info tag
-        stream.advance(XING_OFFSETS[header.flags & FLAGS.LSF_EXT ? 1 : 0][header.nchannels() === 1 ? 1 : 0]);
+        stream.advance(XING_OFFSETS[header.flags & MP3FrameHeader.FLAGS.LSF_EXT ? 1 : 0][header.nchannels() === 1 ? 1 : 0]);
         var tag = stream.readString(4);
         if (tag === 'Xing' || tag === 'Info') {
             var flags = stream.readUInt32();
@@ -165,3 +169,5 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
         }
     };
 });
+
+module.exports = MP3Demuxer;

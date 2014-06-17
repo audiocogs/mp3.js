@@ -1,3 +1,21 @@
+var AV = require('av');
+
+function MP3FrameHeader() {
+    this.layer          = 0; // audio layer (1, 2, or 3)
+    this.mode           = 0; // channel mode (see above)
+    this.mode_extension = 0; // additional mode info
+    this.emphasis       = 0; // de-emphasis to use (see above)
+
+    this.bitrate        = 0; // stream bitrate (bps)
+    this.samplerate     = 0; // sampling frequency (Hz)
+
+    this.crc_check      = 0; // frame CRC accumulator
+    this.crc_target     = 0; // final target CRC checksum
+
+    this.flags          = 0; // flags (see above)
+    this.private_bits   = 0; // private bits
+}
+
 const BITRATES = [
     // MPEG-1
     [ 0,  32000,  64000,  96000, 128000, 160000, 192000, 224000,  // Layer I
@@ -18,7 +36,7 @@ const SAMPLERATES = [
     44100, 48000, 32000 
 ];
 
-const FLAGS = {
+MP3FrameHeader.FLAGS = {
     NPRIVATE_III: 0x0007,   // number of Layer III private bits
     INCOMPLETE  : 0x0008,   // header but not data is decoded
 
@@ -41,7 +59,7 @@ const PRIVATE = {
     III     : 0x001f  // Layer III private bits (up to 5)
 };
 
-const MODE = {
+MP3FrameHeader.MODE = {
     SINGLE_CHANNEL: 0, // single channel
     DUAL_CHANNEL  : 1, // dual channel
     JOINT_STEREO  : 2, // joint (MS/intensity) stereo
@@ -55,24 +73,8 @@ const EMPHASIS = {
     RESERVED  : 2  // unknown emphasis
 };
 
-const BUFFER_GUARD = 8;
-const BUFFER_MDLEN = (511 + 2048 + BUFFER_GUARD);
-
-function MP3FrameHeader() {
-    this.layer          = 0; // audio layer (1, 2, or 3)
-    this.mode           = 0; // channel mode (see above)
-    this.mode_extension = 0; // additional mode info
-    this.emphasis       = 0; // de-emphasis to use (see above)
-
-    this.bitrate        = 0; // stream bitrate (bps)
-    this.samplerate     = 0; // sampling frequency (Hz)
-
-    this.crc_check      = 0; // frame CRC accumulator
-    this.crc_target     = 0; // final target CRC checksum
-
-    this.flags          = 0; // flags (see above)
-    this.private_bits   = 0; // private bits
-}
+MP3FrameHeader.BUFFER_GUARD = 8;
+MP3FrameHeader.BUFFER_MDLEN = (511 + 2048 + MP3FrameHeader.BUFFER_GUARD);
 
 MP3FrameHeader.prototype.copy = function() {
     var clone = new MP3FrameHeader();
@@ -90,14 +92,14 @@ MP3FrameHeader.prototype.nchannels = function () {
 };
 
 MP3FrameHeader.prototype.nbsamples = function() {
-    return (this.layer === 1 ? 12 : ((this.layer === 3 && (this.flags & FLAGS.LSF_EXT)) ? 18 : 36));
+    return (this.layer === 1 ? 12 : ((this.layer === 3 && (this.flags & MP3FrameHeader.FLAGS.LSF_EXT)) ? 18 : 36));
 };
 
 MP3FrameHeader.prototype.framesize = function() {
     if (this.bitrate === 0)
         return null;
     
-    var padding = (this.flags & FLAGS.PADDING ? 1 : 0);
+    var padding = (this.flags & MP3FrameHeader.FLAGS.PADDING ? 1 : 0);
     switch (this.layer) {
         case 1:
             var size = (this.bitrate * 12) / this.samplerate | 0;
@@ -109,7 +111,7 @@ MP3FrameHeader.prototype.framesize = function() {
             
         case 3:
         default:
-            var lsf = this.flags & FLAGS.LSF_EXT ? 1 : 0;
+            var lsf = this.flags & MP3FrameHeader.FLAGS.LSF_EXT ? 1 : 0;
             var size = (this.bitrate * 144) / (this.samplerate << lsf) | 0;
             return size + padding;
     }
@@ -124,12 +126,12 @@ MP3FrameHeader.prototype.decode = function(stream) {
 
     // MPEG 2.5 indicator (really part of syncword) 
     if (stream.read(1) === 0)
-        this.flags |= FLAGS.MPEG_2_5_EXT;
+        this.flags |= MP3FrameHeader.FLAGS.MPEG_2_5_EXT;
 
     // ID 
     if (stream.read(1) === 0) {
-        this.flags |= FLAGS.LSF_EXT;
-    } else if (this.flags & FLAGS.MPEG_2_5_EXT) {
+        this.flags |= MP3FrameHeader.FLAGS.LSF_EXT;
+    } else if (this.flags & MP3FrameHeader.FLAGS.MPEG_2_5_EXT) {
         throw new AV.UnderflowError(); // LOSTSYNC
     }
 
@@ -141,14 +143,14 @@ MP3FrameHeader.prototype.decode = function(stream) {
 
     // protection_bit 
     if (stream.read(1) === 0)
-        this.flags |= FLAGS.PROTECTION;
+        this.flags |= MP3FrameHeader.FLAGS.PROTECTION;
 
     // bitrate_index 
     var index = stream.read(4);
     if (index === 15)
         throw new Error('Invalid bitrate');
 
-    if (this.flags & FLAGS.LSF_EXT) {
+    if (this.flags & MP3FrameHeader.FLAGS.LSF_EXT) {
         this.bitrate = BITRATES[3 + (this.layer >> 1)][index];
     } else {
         this.bitrate = BITRATES[this.layer - 1][index];
@@ -161,16 +163,16 @@ MP3FrameHeader.prototype.decode = function(stream) {
 
     this.samplerate = SAMPLERATES[index];
 
-    if (this.flags & FLAGS.LSF_EXT) {
+    if (this.flags & MP3FrameHeader.FLAGS.LSF_EXT) {
         this.samplerate /= 2;
 
-        if (this.flags & FLAGS.MPEG_2_5_EXT)
+        if (this.flags & MP3FrameHeader.FLAGS.MPEG_2_5_EXT)
             this.samplerate /= 2;
     }
 
     // padding_bit 
     if (stream.read(1))
-        this.flags |= FLAGS.PADDING;
+        this.flags |= MP3FrameHeader.FLAGS.PADDING;
 
     // private_bit 
     if (stream.read(1))
@@ -184,17 +186,17 @@ MP3FrameHeader.prototype.decode = function(stream) {
 
     // copyright 
     if (stream.read(1))
-        this.flags |= FLAGS.COPYRIGHT;
+        this.flags |= MP3FrameHeader.FLAGS.COPYRIGHT;
 
     // original/copy 
     if (stream.read(1))
-        this.flags |= FLAGS.ORIGINAL;
+        this.flags |= MP3FrameHeader.FLAGS.ORIGINAL;
 
     // emphasis 
     this.emphasis = stream.read(2);
 
     // crc_check 
-    if (this.flags & FLAGS.PROTECTION)
+    if (this.flags & MP3FrameHeader.FLAGS.PROTECTION)
         this.crc_target = stream.read(16);
 };
 
@@ -208,7 +210,7 @@ MP3FrameHeader.decode = function(stream) {
         syncing = false;
         
         if (stream.sync) {
-            if (!stream.available(BUFFER_GUARD)) {
+            if (!stream.available(MP3FrameHeader.BUFFER_GUARD)) {
                 stream.next_frame = ptr;
                 throw new AV.UnderflowError();
             } else if (!(stream.getU8(ptr) === 0xff && (stream.getU8(ptr + 1) & 0xe0) === 0xe0)) {
@@ -239,21 +241,21 @@ MP3FrameHeader.decode = function(stream) {
                 MP3FrameHeader.free_bitrate(stream, header);
             
             header.bitrate = stream.freerate;
-            header.flags |= FLAGS.FREEFORMAT;
+            header.flags |= MP3FrameHeader.FLAGS.FREEFORMAT;
         }
         
         // calculate beginning of next frame
-        var pad_slot = (header.flags & FLAGS.PADDING) ? 1 : 0;
+        var pad_slot = (header.flags & MP3FrameHeader.FLAGS.PADDING) ? 1 : 0;
         
         if (header.layer === 1) {
             var N = (((12 * header.bitrate / header.samplerate) << 0) + pad_slot) * 4;
         } else {
-            var slots_per_frame = (header.layer === 3 && (header.flags & FLAGS.LSF_EXT)) ? 72 : 144;
+            var slots_per_frame = (header.layer === 3 && (header.flags & MP3FrameHeader.FLAGS.LSF_EXT)) ? 72 : 144;
             var N = ((slots_per_frame * header.bitrate / header.samplerate) << 0) + pad_slot;
         }
         
         // verify there is enough data left in buffer to decode this frame
-        if (!stream.available(N + BUFFER_GUARD)) {
+        if (!stream.available(N + MP3FrameHeader.BUFFER_GUARD)) {
             stream.next_frame = stream.this_frame;
             throw new AV.UnderflowError();
         }
@@ -276,13 +278,13 @@ MP3FrameHeader.decode = function(stream) {
         }
     }
     
-    header.flags |= FLAGS.INCOMPLETE;
+    header.flags |= MP3FrameHeader.FLAGS.INCOMPLETE;
     return header;
 };
 
 MP3FrameHeader.free_bitrate = function(stream, header) {
-    var pad_slot = header.flags & FLAGS.PADDING ? 1 : 0,
-        slots_per_frame = header.layer === 3 && header.flags & FLAGS.LSF_EXT ? 72 : 144;
+    var pad_slot = header.flags & MP3FrameHeader.FLAGS.PADDING ? 1 : 0,
+        slots_per_frame = header.layer === 3 && header.flags & MP3FrameHeader.FLAGS.LSF_EXT ? 72 : 144;
     
     var start = stream.offset();
     var rate = 0;
@@ -314,3 +316,5 @@ MP3FrameHeader.free_bitrate = function(stream, header) {
     
     stream.freerate = rate * 1000;
 };
+
+module.exports = MP3FrameHeader;

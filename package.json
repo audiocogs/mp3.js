@@ -1,0 +1,33 @@
+{
+  "name": "mp3",
+  "version": "0.1.0",
+  "description": "An MP3 decoder for Aurora.js",
+  "peerDependencies": {
+    "av": "~0.4.0"
+  },
+  "devDependencies": {
+    "exorcist": "^0.1.6",
+    "browserify": "^4.1.10",
+    "browserify-shim": "^3.5.0"
+  },
+  "browserify-shim": {
+    "av": "global:AV"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/audiocogs/mp3.js"
+  },
+  "keywords": [
+    "audio",
+    "av",
+    "aurora.js",
+    "aurora",
+    "decode"
+  ],
+  "author": "Devon Govett <devongovett@gmail.com>",
+  "license": "GPL",
+  "bugs": {
+    "url": "https://github.com/audiocogs/mp3.js/issues"
+  },
+  "homepage": "https://github.com/audiocogs/mp3.js"
+}

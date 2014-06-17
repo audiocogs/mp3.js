@@ -1,3 +1,6 @@
+var AV = require('av');
+var MP3FrameHeader = require('./header');
+
 function MP3Stream(stream) {
     this.stream = stream;                     // actual bitstream
     this.sync = false;                        // stream sync found
@@ -5,7 +8,7 @@ function MP3Stream(stream) {
     this.this_frame = stream.stream.offset;   // start of current frame
     this.next_frame = stream.stream.offset;   // start of next frame
     
-    this.main_data = new Uint8Array(BUFFER_MDLEN); // actual audio data
+    this.main_data = new Uint8Array(MP3FrameHeader.BUFFER_MDLEN); // actual audio data
     this.md_len = 0;                               // length of main data
     
     // copy methods from actual stream
@@ -33,7 +36,7 @@ MP3Stream.prototype.doSync = function() {
         this.advance(8);
     }
 
-    if (!this.available(BUFFER_GUARD))
+    if (!this.available(MP3FrameHeader.BUFFER_GUARD))
         return false;
         
     return true;
@@ -44,3 +47,5 @@ MP3Stream.prototype.reset = function(byteOffset) {
     this.next_frame = byteOffset;
     this.sync = true;
 };
+
+module.exports = MP3Stream;

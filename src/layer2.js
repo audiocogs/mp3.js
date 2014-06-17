@@ -1,10 +1,13 @@
-//import "tables.js"
+var tables = require('./tables');
+var MP3FrameHeader = require('./header');
+var MP3Frame = require('./frame');
+var utils = require('./utils');
 
 function Layer2() {    
     this.samples = new Float64Array(3);
-    this.allocation = makeArray([2, 32], Uint8Array);
-    this.scfsi = makeArray([2, 32], Uint8Array);
-    this.scalefactor = makeArray([2, 32, 3], Uint8Array);
+    this.allocation = utils.makeArray([2, 32], Uint8Array);
+    this.scfsi = utils.makeArray([2, 32], Uint8Array);
+    this.scalefactor = utils.makeArray([2, 32, 3], Uint8Array);
 }
 
 MP3Frame.layers[2] = Layer2;
@@ -85,9 +88,9 @@ Layer2.prototype.decode = function(stream, frame) {
     var nch = header.nchannels();
     var index;
     
-    if (header.flags & FLAGS.LSF_EXT) {
+    if (header.flags & MP3FrameHeader.FLAGS.LSF_EXT) {
         index = 4;
-    } else if (header.flags & FLAGS.FREEFORMAT) {
+    } else if (header.flags & MP3FrameHeader.FLAGS.FREEFORMAT) {
         index = header.samplerate === 48000 ? 0 : 1;
     } else {
         var bitrate_per_channel = header.bitrate;
@@ -121,8 +124,8 @@ Layer2.prototype.decode = function(stream, frame) {
     var offsets = SBQUANT[index].offsets;
     
     var bound = 32;
-    if (header.mode === MODE.JOINT_STEREO) {
-        header.flags |= FLAGS.I_STEREO;
+    if (header.mode === MP3FrameHeader.MODE.JOINT_STEREO) {
+        header.flags |= MP3FrameHeader.FLAGS.I_STEREO;
         bound = 4 + header.mode_extension * 4;
     }
     
@@ -154,7 +157,7 @@ Layer2.prototype.decode = function(stream, frame) {
         }
     }
     
-    if (header.flags & FLAGS.PROTECTION) {
+    if (header.flags & MP3FrameHeader.FLAGS.PROTECTION) {
         // TODO: crc check
     }
     
@@ -201,7 +204,7 @@ Layer2.prototype.decode = function(stream, frame) {
                     index = OFFSETS[BITALLOC[offsets[sb]].offset][index - 1];
                     this.decodeSamples(stream, QC_TABLE[index]);
                     
-                    var scale = SF_TABLE[scalefactor[ch][sb][gr >> 2]];
+                    var scale = tables.SF_TABLE[scalefactor[ch][sb][gr >> 2]];
                     for (var s = 0; s < 3; s++) {
                         frame.sbsample[ch][3 * gr + s][sb] = this.samples[s] * scale;
                     }
@@ -220,7 +223,7 @@ Layer2.prototype.decode = function(stream, frame) {
                 this.decodeSamples(stream, QC_TABLE[index]);
                 
                 for (var ch = 0; ch < nch; ch++) {
-                    var scale = SF_TABLE[scalefactor[ch][sb][gr >> 2]];
+                    var scale = tables.SF_TABLE[scalefactor[ch][sb][gr >> 2]];
                     for (var s = 0; s < 3; s++) {
                         frame.sbsample[ch][3 * gr + s][sb] = this.samples[s] * scale;
                     }
@@ -275,3 +278,5 @@ Layer2.prototype.decodeSamples = function(stream, quantclass) {
         sample[s] = (requantized + quantclass.D) * quantclass.C;
     }
 };
+
+module.exports = Layer2;
