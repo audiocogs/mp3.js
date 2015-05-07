@@ -887,7 +887,7 @@ Layer3.prototype.stereo = function(xr, granules, gr, header, sfbwidth) {
         var right_ch = granule.ch[1];
         var right_xr = xr[1];
         
-        header.flags |= MP3FrameHeader.FLAGS.tables.I_STEREO;
+        header.flags |= MP3FrameHeader.FLAGS.I_STEREO;
          
         // first determine which scalefactor bands are to be processed
         if (right_ch.block_type === 2) {
