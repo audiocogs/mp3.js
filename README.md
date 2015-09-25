@@ -12,7 +12,7 @@ and improves performance thanks to the use of typed arrays.
 ## Demo
 
 You can check out a [demo](http://audiocogs.org/codecs/mp3/) alongside our other decoders 
-[alac.js](http://github.com/audiocogs/alac.js), [flac.js](http://github.com/devongovett/flac.js), and [AAC.js](http://github.com/audiocogs/aac.js).  Currently MP3.js
+[alac.js](http://github.com/audiocogs/alac.js), [flac.js](https://github.com/audiocogs/flac.js), and [AAC.js](http://github.com/audiocogs/aac.js).  Currently MP3.js
 works properly in the latest versions of Firefox, Chrome, and Safari.
 
 ## Authors
