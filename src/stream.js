@@ -23,6 +23,21 @@ MP3Stream.prototype.getU8 = function(offset) {
     return stream.peekUInt8(offset - stream.offset);
 };
 
+MP3Stream.prototype.getU16 = function(offset) {
+    var stream = this.stream.stream;
+    return stream.peekUInt16(offset - stream.offset);
+};
+
+MP3Stream.prototype.getU24 = function(offset) {
+    var stream = this.stream.stream;
+    return stream.peekUInt24(offset - stream.offset);
+};
+
+MP3Stream.prototype.getU32 = function(offset) {
+    var stream = this.stream.stream;
+    return stream.peekUInt32(offset - stream.offset);
+};
+
 MP3Stream.prototype.nextByte = function() {
     var stream = this.stream;
     return stream.bitPosition === 0 ? stream.stream.offset : stream.stream.offset + 1;
