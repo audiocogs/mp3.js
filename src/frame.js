@@ -15,7 +15,7 @@ MP3Frame.layers = [];
 MP3Frame.prototype.decode = function(stream) {
     if (!this.header || !(this.header.flags & MP3FrameHeader.FLAGS.INCOMPLETE)) {
         this.header = MP3FrameHeader.decode(stream);
-	}
+    }
     this.header.flags &= ~MP3FrameHeader.FLAGS.INCOMPLETE;
     
     // make an instance of the decoder for this layer if needed
