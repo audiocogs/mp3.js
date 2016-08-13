@@ -53,7 +53,7 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
     };
 
     const XING_OFFSETS = [[32, 17], [17, 9]];
-    this.prototype.parseDuration = function(header) {
+    this.prototype.parseDuration = function(header, off) {
         var stream = this.stream;
         var frames;
 
@@ -86,7 +86,7 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
 
         } else {
             // Check for VBRI tag (always 32 bytes after end of mpegaudio header)
-            stream.seek(offset + 4 + 32);
+            stream.seek(off + 4 + 32);
             tag = stream.readString(4);
             if (tag == 'VBRI' && stream.readUInt16() === 1) { // Check tag version
                 stream.advance(4); // skip delay and quality
@@ -101,8 +101,8 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
 
                 var pos = 0;
                 for (var i = 0; i < entries; i++) {
-                    this.addSeekPoint(pos, framesPerEntry * i);
-                    pos += stream[fn]();
+                    this.addSeekPoint(pos, i * framesPerEntry * header.nbsamples() * 32 / header.samplerate * 1000 | 0);
+                    pos += stream[fn]() * scale;
                 }
             }
         }
@@ -120,7 +120,7 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
         if (!this.sentInfo) {
             // read id3 metadata if it exists
             var id3header = MP3Demuxer.getID3v2Header(stream);
-            if (id3header) {
+            if (id3header && !this.emittedMeta) {
                 stream.advance(10);
 
                 if (id3header.major > 2) {
@@ -130,6 +130,8 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
                 }
 
                 this.emit('metadata', id3.read());
+                stream.seek(10 + id3header.length);
+                this.emittedMeta = true;
             }
 
             // read the header of the first audio frame
@@ -150,7 +152,7 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
                 flags: header.flags
             });
 
-            var sentDuration = this.parseDuration(header);
+            var sentDuration = this.parseDuration(header, off);
             stream.advance(off - stream.offset);
 
             // if there were no Xing/VBRI tags, guesstimate the duration based on data size and bitrate
