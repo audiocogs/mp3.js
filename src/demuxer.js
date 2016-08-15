@@ -56,6 +56,33 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
     this.prototype.parseDuration = function(header, off) {
         var stream = this.stream;
         var frames;
+        
+        if (this.metadata) {
+            var mllt = this.metadata.MPEGLocationLookupTable;
+            if (mllt) {
+                var bitstream = new AV.Bitstream(AV.Stream.fromBuffer(mllt.data));
+                var refSize = mllt.bitsForBytesDeviation + mllt.bitsForMillisecondsDev;
+                var samples = 0;
+                var bytes = 0;
+            
+                while (bitstream.available(refSize)) {
+                    this.addSeekPoint(bytes, samples);
+                    
+                    var bytesDev = bitstream.read(mllt.bitsForBytesDeviation);
+                    bitstream.advance(mllt.bitsForMillisecondsDev); // skip millisecond deviation
+                    
+                    bytes += mllt.bytesBetweenReference + bytesDev;
+                    samples += mllt.framesBetweenReference * header.nbsamples() * 32;
+                }
+                
+                this.addSeekPoint(bytes, samples);
+            }
+            
+            if (this.metadata.length) {
+                this.emit('duration', parseInt(this.metadata.length, 10));
+                return true;
+            }
+        }
 
         var offset = stream.offset;
         if (!header || header.layer !== 3)
@@ -72,7 +99,7 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
             if (flags & 2)
                 var size = stream.readUInt32();
 
-            if (flags & 4 && frames && size) {
+            if (flags & 4 && frames && size && this.seekPoints.length === 0) {
                 for (var i = 0; i < 100; i++) {
                     var b = stream.readUInt8();
                     var pos = b / 256 * size | 0;
@@ -93,16 +120,18 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
                 stream.advance(4); // skip size
                 frames = stream.readUInt32();
 
-                var entries = stream.readUInt16();
-                var scale = stream.readUInt16();
-                var bytesPerEntry = stream.readUInt16();
-                var framesPerEntry = stream.readUInt16();
-                var fn = 'readUInt' + (bytesPerEntry * 8);
+                if (this.seekPoints.length === 0) {
+                    var entries = stream.readUInt16();
+                    var scale = stream.readUInt16();
+                    var bytesPerEntry = stream.readUInt16();
+                    var framesPerEntry = stream.readUInt16();
+                    var fn = 'readUInt' + (bytesPerEntry * 8);
 
-                var pos = 0;
-                for (var i = 0; i < entries; i++) {
-                    this.addSeekPoint(pos, i * framesPerEntry * header.nbsamples() * 32 / header.samplerate * 1000 | 0);
-                    pos += stream[fn]() * scale;
+                    var pos = 0;
+                    for (var i = 0; i < entries; i++) {
+                        this.addSeekPoint(pos, i * framesPerEntry * header.nbsamples() * 32 | 0);
+                        pos += stream[fn]() * scale;
+                    }
                 }
             }
         }
@@ -120,7 +149,7 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
         if (!this.sentInfo) {
             // read id3 metadata if it exists
             var id3header = MP3Demuxer.getID3v2Header(stream);
-            if (id3header && !this.emittedMeta) {
+            if (id3header && !this.metadata) {
                 stream.advance(10);
 
                 if (id3header.major > 2) {
@@ -129,9 +158,9 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
                     var id3 = new ID3v22Stream(id3header, stream);
                 }
 
-                this.emit('metadata', id3.read());
+                this.metadata = id3.read();
+                this.emit('metadata', this.metadata);
                 stream.seek(10 + id3header.length);
-                this.emittedMeta = true;
             }
 
             // read the header of the first audio frame
