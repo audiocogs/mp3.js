@@ -4,53 +4,8 @@ var ID3v22Stream = require('./id3').ID3v22Stream;
 var MP3FrameHeader = require('./header');
 var MP3Stream = require('./stream');
 
-var MP3Demuxer = AV.Demuxer.extend(function() {
+var MP3Demuxer = AV.Demuxer.extend(function () {
     AV.Demuxer.register(this);
-
-    this.probe = function(stream) {
-        var off = stream.offset;
-
-        // skip id3 metadata if it exists
-        var id3header = MP3Demuxer.getID3v2Header(stream);
-        if (id3header)
-            stream.advance(10 + id3header.length);
-
-        // attempt to read the header of the first audio frame
-        var s = new MP3Stream(new AV.Bitstream(stream));
-        var header = null;
-
-        try {
-            header = MP3FrameHeader.decode(s);
-        } catch (e) {};
-
-        // go back to the beginning, for other probes
-        stream.seek(off);
-
-        return !!header;
-    };
-
-    this.getID3v2Header = function(stream) {
-        if (stream.peekString(0, 3) == 'ID3') {
-            stream = AV.Stream.fromBuffer(stream.peekBuffer(0, 10));
-            stream.advance(3); // 'ID3'
-
-            var major = stream.readUInt8();
-            var minor = stream.readUInt8();
-            var flags = stream.readUInt8();
-            var bytes = stream.readBuffer(4).data;
-            var length = (bytes[0] << 21) | (bytes[1] << 14) | (bytes[2] << 7) | bytes[3];
-
-            return {
-                version: '2.' + major + '.' + minor,
-                major: major,
-                minor: minor,
-                flags: flags,
-                length: length
-            };
-        }
-
-        return null;
-    };
 
     const XING_OFFSETS = [[32, 17], [17, 9]];
     this.prototype.parseDuration = function(header, off) {
@@ -202,5 +157,51 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
         }
     };
 });
+
+MP3Demuxer.probe = function(stream) {
+    var off = stream.offset;
+
+    // skip id3 metadata if it exists
+    var id3header = MP3Demuxer.getID3v2Header(stream);
+    if (id3header)
+        stream.advance(10 + id3header.length);
+
+    // attempt to read the header of the first audio frame
+    var s = new MP3Stream(new AV.Bitstream(stream));
+    var header = null;
+
+    try {
+        header = MP3FrameHeader.decode(s);
+    } catch (e) {};
+
+    // go back to the beginning, for other probes
+    stream.seek(off);
+
+    return !!header;
+};
+
+MP3Demuxer.getID3v2Header = function(stream) {
+    if (stream.peekString(0, 3) == 'ID3') {
+        stream = AV.Stream.fromBuffer(stream.peekBuffer(0, 10));
+        stream.advance(3); // 'ID3'
+
+        var major = stream.readUInt8();
+        var minor = stream.readUInt8();
+        var flags = stream.readUInt8();
+        var bytes = stream.readBuffer(4).data;
+        var length = (bytes[0] << 21) | (bytes[1] << 14) | (bytes[2] << 7) | bytes[3];
+
+        return {
+            version: '2.' + major + '.' + minor,
+            major: major,
+            minor: minor,
+            flags: flags,
+            length: length
+        };
+    }
+
+    return null;
+};
+
 
 module.exports = MP3Demuxer;

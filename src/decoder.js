@@ -54,7 +54,6 @@ var MP3Decoder = AV.Decoder.extend(function() {
                 output[j++] = data[i][k];
             }
         }
-        
         return output;
     };
     
