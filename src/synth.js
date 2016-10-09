@@ -980,8 +980,8 @@ MP3Synth.prototype.full = function(frame, nch, ns) {
             Dptr = 0;
 
             ptr = D[Dptr];
-            _fx = fx[fxPtr];
-            _fe = fe[fePtr];
+            var _fx = fx[fxPtr];
+            var _fe = fe[fePtr];
 
             lo =  _fx[0] * ptr[po +  0];
             lo += _fx[1] * ptr[po + 14];
@@ -1012,7 +1012,7 @@ MP3Synth.prototype.full = function(frame, nch, ns) {
                 /* D[32 - sb][i] === -D[sb][31 - i] */
 
                 ptr = D[Dptr];
-                _fo = fo[foPtr];
+                var _fo = fo[foPtr];
                 _fe = fe[fePtr];
 
                 lo  = _fo[0] * ptr[po +  0];

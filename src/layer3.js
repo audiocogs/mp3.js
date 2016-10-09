@@ -1197,7 +1197,7 @@ Layer3.prototype.reorder = function (xr, channel, sfbwidth) {
         sw[w]  = 0;
     }
 
-    f = sfbwidth[sfbwidthPointer++];
+    var f = sfbwidth[sfbwidthPointer++];
     w = 0;
 
     for (var l = 18 * sb; l < 576; ++l) {
