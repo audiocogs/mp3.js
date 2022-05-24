@@ -167,32 +167,36 @@ var MP3Demuxer = AV.Demuxer.extend(function() {
             var off = stream.offset;
             var s = new MP3Stream(new AV.Bitstream(stream));
 
-            var header = MP3FrameHeader.decode(s);
-            if (!header)
-                return this.emit('error', 'Could not find first frame.');
+            try {
+                var header = MP3FrameHeader.decode(s);
+                if (!header)
+                    return this.emit('error', 'Could not find first frame.');
 
-            this.emit('format', {
-                formatID: 'mp3',
-                sampleRate: header.samplerate,
-                channelsPerFrame: header.nchannels(),
-                bitrate: header.bitrate,
-                floatingPoint: true,
-                layer: header.layer,
-                flags: header.flags
-            });
-
-            var sentDuration = this.parseDuration(header, off);
-            stream.advance(off - stream.offset);
-
-            // if there were no Xing/VBRI tags, guesstimate the duration based on data size and bitrate
-            this.dataSize = 0;
-            if (!sentDuration) {
-                this.on('end', function() {
-                    this.emit('duration', this.dataSize * 8 / header.bitrate * 1000 | 0);
+                this.emit('format', {
+                    formatID: 'mp3',
+                    sampleRate: header.samplerate,
+                    channelsPerFrame: header.nchannels(),
+                    bitrate: header.bitrate,
+                    floatingPoint: true,
+                    layer: header.layer,
+                    flags: header.flags
                 });
-            }
 
-            this.sentInfo = true;
+                var sentDuration = this.parseDuration(header, off);
+                stream.advance(off - stream.offset);
+
+                // if there were no Xing/VBRI tags, guesstimate the duration based on data size and bitrate
+                this.dataSize = 0;
+                if (!sentDuration) {
+                    this.on('end', function() {
+                        this.emit('duration', this.dataSize * 8 / header.bitrate * 1000 | 0);
+                    });
+                }
+
+                this.sentInfo = true;
+            } catch (e) {
+                return this.emit('error', e.message);
+            }
         }
 
         while (stream.available(1)) {
